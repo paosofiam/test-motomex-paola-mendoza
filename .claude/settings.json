@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(py -3.14*)",
+      "Bash(python -m*)",
+      "Bash(pip install*)",
+      "Bash(pip freeze*)",
+      "Bash(uvicorn*)",
+      "Bash(alembic*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "PowerShell(py -3.14*)",
+      "PowerShell(python -m*)",
+      "PowerShell(pip install*)",
+      "PowerShell(pip freeze*)",
+      "PowerShell(uvicorn*)",
+      "PowerShell(alembic*)",
+      "PowerShell(.\\.venv\\Scripts\\Activate.ps1*)",
+      "PowerShell(Get-ChildItem*)",
+      "PowerShell(Test-Path*)",
+      "PowerShell(git status*)",
+      "PowerShell(git diff*)",
+      "PowerShell(git log*)",
+      "PowerShell(git show*)"
+    ],
+    "deny": [
+      "Read(./API-server/.env)"
+    ]
+  }
+}

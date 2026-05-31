@@ -22,7 +22,7 @@
 | Clase de controlador     | `PascalCase`, singular, sufijo `Controller`         | `ProductController`, `LeadController`         |
 | Instancia de router      | `snake_case`, sufijo `_router`                      | `product_router`, `lead_router`               |
 ## Fases de Desarrollo
-1. Plan de levantamiento de entorno virtual
+1. Plan de levantamiento de entorno virtual e instalacion de librerias y dependencias.
 2. Plan de desarrollo de 2 Modelos con sus respectivas migraciones y seeders
 3. Plan de Ejecución de migraciones
 4. Plan de desarrollo de 2 controladores con endpoints/routers

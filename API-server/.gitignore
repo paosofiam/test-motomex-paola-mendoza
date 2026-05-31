@@ -1,0 +1,32 @@
+# Entorno virtual
+.venv/
+venv/
+
+# Bytecode Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Variables de entorno
+.env
+.env.local
+
+# Editores e IDEs
+.idea/
+.vscode/
+*.swp
+
+# SQLite local (si llegara a usarse para tests)
+*.sqlite
+*.sqlite3
+*.db
+
+# Logs y temporales
+*.log
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Alembic (placeholder — se ajustará al inicializar migrations)
+# migrations/versions/__pycache__/
