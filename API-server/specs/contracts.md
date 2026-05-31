@@ -23,14 +23,10 @@
 | Instancia de router      | `snake_case`, sufijo `_router`                      | `product_router`, `lead_router`               |
 ## Fases de Desarrollo
 1. Plan de levantamiento de entorno virtual e instalacion de librerias y dependencias.
-2. Plan de desarrollo de 2 Modelos con sus respectivas migraciones y seeders
-3. Plan de Ejecución de migraciones
-4. Plan de desarrollo de 2 controladores con endpoints/routers
-5. Desarrollo de Modelos y migraciones uno por uno
-6. Ejecución de migraciones
-7. Desarrollo de Controladores uno por uno
-8. Plan de dockerización del proyecto
-9. Despliegue en producción
+2. Plan de desarrollo de 2 Modelos con sus respectivas migraciones y seeders con Desarrollo de Modelos y migraciones uno por uno Ejecución de migraciones
+3. Plan de desarrollo de 2 controladores con endpoints/routers con Desarrollo de Controladores uno por uno
+4. Plan de dockerización del proyecto
+5. Despliegue en producción
 ## Base de datos
 
 > Para la especificación estructural completa (tablas, columnas, tipos, FKs, columnas estándar, valores por defecto, seeders y diagrama entidad-relación), véase [`er_diagram.md`](./er_diagram.md). Esta sección documenta únicamente los **por qués** de las decisiones de lógica de negocio que afectan al modelo de datos.
