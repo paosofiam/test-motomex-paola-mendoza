@@ -1,8 +1,10 @@
 """DTOs del recurso productos.
 
 `ProductoCreate` refleja el body de `POST /productos` (`endpoints.md`): catálogos Tier 2 como
-strings (`marca`, `categorias`, `ciudades`) y vehículos como objetos, todos resueltos vía
-find-or-create en la futura capa service. `moneda_id` es Tier 1 (viaja por id).
+strings (`marca`, `categorias`, `ciudades`) y vehículos como objetos, todos resueltos en la
+futura capa service. `marca`, `vehiculos` y `categorias` son find-or-create; `ciudades` es
+find-or-fail (el payload no lleva estado y la BD exige `estado_id NOT NULL`). `moneda_id`
+es Tier 1 (viaja por id, default 1 = MXN).
 
 `ProductoResponse` devuelve `precio` ya convertido a MXN (centavos) y `moneda` como string,
 conforme a la regla de conversión de moneda en respuestas.
@@ -18,10 +20,10 @@ from app.schemas.common import VehiculoSchema
 class ProductoCreate(BaseModel):
     marca: str
     modelo: str
-    precio: int  # centavos en la moneda original (moneda_id)
-    moneda_id: int
-    stock: int
-    especificaciones: dict[str, Any] = Field(default_factory=dict)
+    precio: int = Field(..., gt=0)        # centavos en la moneda original (moneda_id)
+    moneda_id: int = 1                   # Tier 1; default DB: 1 = MXN
+    stock: int = Field(0, ge=0)          # default DB
+    especificaciones: dict[str, Any] | None = None   # nullable en DB
     vehiculos: list[VehiculoSchema] = Field(default_factory=list)
     categorias: list[str] = Field(default_factory=list)
     ciudades: list[str] = Field(default_factory=list)
@@ -33,7 +35,7 @@ class ProductoResponse(BaseModel):
     id: int
     marca: str
     modelo: str
-    precio: int  # MXN, centavos
+    precio: int                          # MXN, centavos (convertido por la service layer)
     moneda: str
     stock: int
-    especificaciones: dict[str, Any] = Field(default_factory=dict)
+    especificaciones: dict[str, Any] | None = None   # nullable en DB

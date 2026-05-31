@@ -22,6 +22,7 @@ from app.core import resolvers
 from app.core.exceptions import NotFoundError
 from app.core.mixins import TimestampMixin, _now
 from app.database import Base
+from app.models.intencion_de_compra_de_lead_model import IntencionDeCompraDeLeadModel
 from app.models.lead_producto_model import LeadProductoModel
 from app.models.lead_vehiculo_model import LeadVehiculoModel
 
@@ -68,6 +69,24 @@ class LeadModel(TimestampMixin, Base):
         return db.scalar(select(cls).where(cls.id == lead_id, cls.deleted_at.is_(None)))
 
     @classmethod
+    def search(
+        cls,
+        db: Session,
+        chat_whatsapp_id: str | None = None,
+        intencion_de_compra: str | None = None,
+    ) -> list["LeadModel"]:
+        """Leads activos con filtros opcionales por `chat_whatsapp_id` e `intencion_de_compra` (string)."""
+        stmt = select(cls).where(cls.deleted_at.is_(None))
+        if chat_whatsapp_id is not None:
+            stmt = stmt.where(cls.chat_whatsapp_id == chat_whatsapp_id)
+        if intencion_de_compra is not None:
+            stmt = stmt.join(
+                IntencionDeCompraDeLeadModel,
+                cls.intencion_de_compra_id == IntencionDeCompraDeLeadModel.id,
+            ).where(IntencionDeCompraDeLeadModel.tipo == intencion_de_compra)
+        return list(db.scalars(stmt))
+
+    @classmethod
     def create(
         cls,
         db: Session,
@@ -104,11 +123,6 @@ class LeadModel(TimestampMixin, Base):
         cls._sync_productos_interes(db, lead.id, productos_interes, ts)
         cls._sync_vehiculos(db, lead.id, vehiculo, ts)
 
-        # TODO (services layer): el commit se moverá al servicio que conecte modelo y controlador;
-        # el modelo pasará a hacer solo flush() para que múltiples operaciones puedan componerse
-        # en una sola transacción atómica. Los métodos de solo lectura (get_by_id) nunca
-        # comitean — solo los métodos de escritura (create, update) lo hacen aquí.
-        db.commit()
         db.refresh(lead)
         return lead
 
@@ -154,8 +168,6 @@ class LeadModel(TimestampMixin, Base):
             cls._sync_vehiculos(db, lead.id, vehiculo, ts, replace=True)
 
         lead.updated_at = ts
-        # TODO (services layer): ver nota en create().
-        db.commit()
         db.refresh(lead)
         return lead
 

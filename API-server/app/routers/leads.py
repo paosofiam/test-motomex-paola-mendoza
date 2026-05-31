@@ -28,6 +28,11 @@ def read_leads(
 ) -> Any:
     """Lista leads activos, con filtros opcionales por `chat_whatsapp_id` e `intencion_de_compra`."""
     # SEAM (pendiente): return lead_service.search(db, chat_whatsapp_id=..., intencion_de_compra=...)
+    # SERVICE (C2): construir LeadResponse explícitamente — ciudad=lead.ciudad.ciudad,
+    #   estado=lead.ciudad.estado.estado, chat_id=get_active_chat_id(db, lead.id),
+    #   intencion_de_compra=lead.intencion.tipo,
+    #   productos_interes=[lp.producto.modelo for lp in lead.leads_productos],
+    #   vehiculo=[VehiculoSchema(modelo=lv.vehiculo.modelo, marca=lv.vehiculo.marca.marca, anio=lv.vehiculo.anio) for lv in lead.leads_vehiculos].
     raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)
 
 
@@ -47,6 +52,8 @@ def create_lead(
     #   lead = lead_service.create(db, payload)
     #   response.headers["Location"] = f"/leads/{lead.id}"
     #   return lead
+    # SERVICE (C2): ver nota en read_leads.
+    # SERVICE (C4): vehiculo=[v.model_dump() for v in payload.vehiculo] antes de llamar al modelo.
     raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)
 
 
@@ -58,6 +65,7 @@ def create_lead(
 def read_lead(lead_id: int, db: Session = Depends(get_db)) -> Any:
     """Devuelve un lead activo por id, o 404 si no existe / está soft-deleted."""
     # SEAM (pendiente): return lead_service.get_by_id(db, lead_id)  # NotFoundError -> 404
+    # SERVICE (C2): ver nota en read_leads.
     raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)
 
 
@@ -73,4 +81,6 @@ def update_lead(
 ) -> Any:
     """Actualización parcial de un lead. Devuelve el lead completo actualizado (200)."""
     # SEAM (pendiente): return lead_service.update(db, lead_id, payload)  # solo campos enviados
+    # SERVICE (C2): ver nota en read_leads.
+    # SERVICE (C4): vehiculo=[v.model_dump() for v in payload.vehiculo] antes de llamar al modelo.
     raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)

@@ -5,10 +5,13 @@
 `vehiculo` viaja como lista de objetos (find-or-create con cascada sobre marca). El campo `estado`
 NO se acepta en bodies: es derivado de `ciudad → estados`.
 
-`PATCH` es parcial: todos los campos opcionales y `chat_whatsapp_id` ausente (inmutable tras crear).
+`nombre`, `ciudad` y `direccion_envio` son nullable en DB y por tanto opcionales en bodies.
 
-`LeadResponse` incluye los campos derivados `chat_id` (chat activo) y `estado`, además de
-`intencion_de_compra` ya resuelto a string.
+`PATCH` es parcial: todos los campos opcionales y `chat_whatsapp_id` ausente (inmutable tras crear).
+La service layer usará `payload.model_fields_set` para saber qué campos pasar a `LeadModel.update`.
+
+`LeadResponse` incluye los campos derivados `chat_id` (chat activo, None si aún no tiene) y
+`estado` (None si `ciudad` es None), además de `intencion_de_compra` ya resuelto a string.
 """
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -19,13 +22,13 @@ from app.schemas.common import VehiculoSchema
 class LeadCreate(BaseModel):
     chat_whatsapp_id: str
     nombre_whatsapp: str
-    telefono: str
-    nombre: str
-    ciudad: str
+    telefono: str = Field(..., pattern=r'^\+\d{1,14}$')
+    intencion_de_compra_id: int
+    nombre: str | None = None            # nullable en DB
+    ciudad: str | None = None            # nullable en DB; find-or-fail si se envía
     productos_interes: list[str] = Field(default_factory=list)
     vehiculo: list[VehiculoSchema] = Field(default_factory=list)
-    direccion_envio: str
-    intencion_de_compra_id: int
+    direccion_envio: str | None = None   # nullable en DB
 
 
 class LeadUpdate(BaseModel):
@@ -43,14 +46,14 @@ class LeadResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    chat_id: int  # derivado: id del chat activo más reciente
+    chat_id: int | None = None           # derivado: id del chat activo más reciente; None si no tiene
     chat_whatsapp_id: str
     nombre_whatsapp: str
     telefono: str
-    nombre: str
-    ciudad: str
-    estado: str  # derivado: ciudad -> estados.estado
+    nombre: str | None = None            # nullable en DB
+    ciudad: str | None = None            # nullable en DB
+    estado: str | None = None            # derivado de ciudad → estados; None si ciudad es None
     productos_interes: list[str] = Field(default_factory=list)
     vehiculo: list[VehiculoSchema] = Field(default_factory=list)
-    direccion_envio: str
-    intencion_de_compra: str
+    direccion_envio: str | None = None   # nullable en DB
+    intencion_de_compra: str             # derivado del FK NOT NULL → siempre presente

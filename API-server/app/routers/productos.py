@@ -28,6 +28,8 @@ def read_productos(
 ) -> Any:
     """Lista productos activos, con filtros opcionales por `marca` y `precio_minimo`."""
     # SEAM (pendiente): return producto_service.search(db, marca=marca, precio_minimo=precio_minimo)
+    # SERVICE (C1): construir ProductoResponse explícitamente — marca=producto.marca.marca,
+    #   moneda=producto.moneda.abreviacion, precio=round(precio * tipo_de_cambio / 100).
     raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)
 
 
@@ -47,6 +49,8 @@ def create_producto(
     #   producto = producto_service.create(db, payload)
     #   response.headers["Location"] = f"/productos/{producto.id}"
     #   return producto
+    # SERVICE (C1): ver nota en read_productos.
+    # SERVICE (C4): vehiculos=[v.model_dump() for v in payload.vehiculos] antes de llamar al modelo.
     raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)
 
 
@@ -58,6 +62,7 @@ def create_producto(
 def read_producto(producto_id: int, db: Session = Depends(get_db)) -> Any:
     """Devuelve un producto activo por id, o 404 si no existe / está soft-deleted."""
     # SEAM (pendiente): return producto_service.get_by_id(db, producto_id)  # NotFoundError -> 404
+    # SERVICE (C1): ver nota en read_productos.
     raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)
 
 

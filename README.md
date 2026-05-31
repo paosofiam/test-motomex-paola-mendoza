@@ -32,3 +32,233 @@ Las especificaciones del proyecto están divididas en tres documentos complement
 - [`endpoints.md`](./endpoints.md) — tabla de endpoints REST, tipos de recursos, formato de respuestas y errores (RFC 7807), política Tier 1/2/3 de catálogos y política find-or-create/find-or-fail.
 
 Stack: MySQL + FastAPI + SQLAlchemy/Pydantic, consumido por un chatbot de n8n sobre WhatsApp.
+
+## Puesta en marcha de la base de datos (paso a paso)
+
+> **Para quién es esta guía:** alguien que **nunca ha tocado este proyecto, ni Python, ni el framework**. Sigue los pasos en orden, de arriba hacia abajo, copiando y pegando cada comando tal cual. No necesitas entender el código: solo ejecutar.
+>
+> Todos los comandos son para **PowerShell en Windows** (la terminal azul que viene con Windows; búscala en el menú Inicio como "PowerShell").
+
+Al terminar tendrás una base de datos llamada `motomex` con todas sus tablas creadas y llenas de datos de ejemplo, lista para que la API la consulte.
+
+### Paso 0 — Instalar el software base (solo la primera vez)
+
+Necesitas dos programas instalados antes de empezar:
+
+1. **XAMPP** — un paquete que incluye **MySQL** (el motor donde vive la base de datos) y **Apache** (un servidor web que aquí usamos solo para abrir *phpMyAdmin*, una página para ver la base de datos con el mouse).
+   - Descárgalo de https://www.apachefriends.org e instálalo con las opciones por defecto.
+   - Abre el **XAMPP Control Panel** y pulsa **Start** en los renglones de **Apache** y **MySQL** (ambos deben quedar en verde).
+   - Comprueba que funciona abriendo en el navegador: http://localhost/phpmyadmin
+
+2. **Python 3.14** — el lenguaje en el que está escrita la API.
+   - Descárgalo de https://www.python.org/downloads/ e instálalo. **MUY IMPORTANTE:** en la primera pantalla del instalador, marca la casilla **"Add Python to PATH"** antes de continuar.
+   - Verifica que quedó instalado abriendo PowerShell y escribiendo:
+     ```powershell
+     py -3.14 --version
+     ```
+     Debe responder algo como `Python 3.14.x`. Si dice "no se reconoce", reinstala marcando "Add Python to PATH".
+
+### Paso 1 — Crear la base de datos vacía
+
+La base de datos es como un archivo gigante donde se guardan los datos en tablas. Primero hay que crearla vacía; las tablas las llenamos después.
+
+1. Abre http://localhost/phpmyadmin en el navegador.
+2. En el menú izquierdo haz clic en **Nueva** / **New**.
+3. Escribe el nombre **`motomex`**, en el desplegable de cotejamiento (collation) elige **`utf8mb4_unicode_ci`** y pulsa **Crear** / **Create**.
+
+> Alternativa con SQL: en la pestaña **SQL** de phpMyAdmin, pega y ejecuta:
+> ```sql
+> CREATE DATABASE motomex CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+> ```
+
+### Paso 2 — Preparar el entorno de Python (desde cero)
+
+Un **entorno virtual** (venv) es una carpeta aislada donde se instalan las librerías de **este** proyecto sin ensuciar el resto de tu computadora. Lo creamos una vez.
+
+Abre PowerShell y **muévete a la carpeta del backend**. Sustituye la ruta por donde hayas descargado el proyecto:
+
+```powershell
+cd C:\xampp\htdocs\test-motomex-paola-mendoza\API-server
+```
+
+Ahora, en ese orden:
+
+```powershell
+# 1. Crear el entorno virtual (crea una carpeta .venv)
+py -3.14 -m venv .venv
+
+# 2. Activarlo (a partir de aquí verás "(.venv)" al inicio del renglón)
+.\.venv\Scripts\Activate.ps1
+
+# 3. Instalar todas las librerías que el proyecto necesita
+pip install -r requirements.txt
+
+# 4. Crear el archivo de configuración a partir de la plantilla
+Copy-Item .env.example .env
+```
+
+Notas:
+- Cuando el entorno está activo, el inicio de cada renglón muestra **`(.venv)`**. Si cierras y vuelves a abrir PowerShell, repite el `cd` y el comando de activación (paso 2) antes de seguir.
+- El archivo `.env` ya viene configurado para un **XAMPP recién instalado** (usuario `root` sin contraseña en `localhost:3306`, base `motomex`). Solo edítalo si cambiaste esas credenciales.
+- **Si la activación falla** con un error de "ejecución de scripts está deshabilitada", corre esto una vez y reintenta el paso 2:
+  ```powershell
+  Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+  ```
+
+### Paso 3 — Crear las tablas (migraciones), una por una
+
+Las **migraciones** son scripts que crean las tablas en el orden correcto (cada tabla depende de las anteriores). Hay **18**, y las aplicamos una por una con `alembic upgrade <nombre>`. Ejecuta los comandos **en este orden exacto**; cada uno crea una tabla:
+
+| #  | Comando (revisión)                          | Tabla que crea          | Qué guarda                                            |
+| -- | ------------------------------------------- | ----------------------- | ---------------------------------------------------- |
+| 1  | `0001_monedas`                              | `monedas`               | Monedas y su tipo de cambio (MXN, USD, EUR)           |
+| 2  | `0002_estados`                              | `estados`               | Estados de la república                               |
+| 3  | `0003_intenciones`                          | `intenciones_de_compra_de_leads` | Nivel de interés del cliente (baja…completa) |
+| 4  | `0004_chat_statuses`                        | `chat_statuses`         | Estados de una conversación                           |
+| 5  | `0005_marcas`                               | `marcas`                | Marcas de autos/refacciones                           |
+| 6  | `0006_categorias`                           | `categorias`            | Categorías de producto (baterías, balatas…)           |
+| 7  | `0007_ciudades`                             | `ciudades`              | Ciudades (ligadas a un estado)                        |
+| 8  | `0008_vehiculos`                            | `vehiculos`             | Vehículos por modelo + marca + año                    |
+| 9  | `0009_productos`                            | `productos`             | Catálogo de refacciones                               |
+| 10 | `0010_leads`                                | `leads`                 | Clientes/prospectos                                   |
+| 11 | `0011_chats`                                | `chats`                 | Conversaciones de WhatsApp                            |
+| 12 | `0012_pre_ordenes`                          | `pre_ordenes`           | Pre-órdenes de compra                                 |
+| 13 | `0013_productos_vehiculos`                  | `productos_vehiculos`   | Qué producto es compatible con qué vehículo           |
+| 14 | `0014_productos_ciudades`                   | `productos_ciudades`    | En qué ciudades hay cada producto                     |
+| 15 | `0015_productos_categorias`                 | `productos_categorias`  | A qué categorías pertenece cada producto              |
+| 16 | `0016_leads_productos`                      | `leads_productos`       | Productos que le interesan a cada cliente             |
+| 17 | `0017_leads_vehiculos`                      | `leads_vehiculos`       | Vehículos que tiene cada cliente                      |
+| 18 | `0018_pre_ordenes_productos`                | `pre_ordenes_productos` | Renglones de cada pre-orden (producto + cantidad)     |
+
+Con el `(.venv)` activo y dentro de `API-server/`, ejecuta uno por uno:
+
+```powershell
+alembic upgrade 0001_monedas
+alembic upgrade 0002_estados
+alembic upgrade 0003_intenciones
+alembic upgrade 0004_chat_statuses
+alembic upgrade 0005_marcas
+alembic upgrade 0006_categorias
+alembic upgrade 0007_ciudades
+alembic upgrade 0008_vehiculos
+alembic upgrade 0009_productos
+alembic upgrade 0010_leads
+alembic upgrade 0011_chats
+alembic upgrade 0012_pre_ordenes
+alembic upgrade 0013_productos_vehiculos
+alembic upgrade 0014_productos_ciudades
+alembic upgrade 0015_productos_categorias
+alembic upgrade 0016_leads_productos
+alembic upgrade 0017_leads_vehiculos
+alembic upgrade 0018_pre_ordenes_productos
+```
+
+Qué esperar:
+- Tras cada comando verás una línea tipo `Running upgrade ... -> 0001_monedas, ...`. Eso significa que esa tabla se creó.
+- El nombre que va en el comando es el **identificador de la revisión**, no el del archivo. (Ojo con el #3: el comando es `0003_intenciones`, aunque el archivo se llame `0003_intenciones_de_compra_de_leads.py`.)
+- En cualquier momento puedes ver hasta dónde vas con `alembic current`, o la lista completa con `alembic history`.
+
+> **Atajo (opcional):** si prefieres aplicarlas todas de golpe en vez de una por una, basta `alembic upgrade head`. La forma de arriba (una por una) es la recomendada la primera vez para ver cómo se construye cada tabla.
+
+### Paso 4 — Llenar las tablas con datos (seeders)
+
+Los **seeders** insertan los datos: primero los catálogos obligatorios (monedas, estados de chat, etc.) y luego datos de ejemplo (productos, clientes, una pre-orden). Es **un solo comando** y es seguro repetirlo (no duplica datos):
+
+```powershell
+python -m seeders.run_all
+```
+
+Qué esperar: una lista de las 18 tablas, cada una marcada con `OK` y su número de filas, y al final:
+
+```
+Todas las 18 tablas pobladas correctamente.
+```
+
+### Paso 5 — Comprobar que todo quedó bien
+
+1. Confirma la última migración aplicada:
+   ```powershell
+   alembic current
+   ```
+   Debe mostrar `0018_pre_ordenes_productos (head)`.
+2. En phpMyAdmin, al hacer clic en la base `motomex`, deben aparecer **19 tablas**: las 18 del proyecto más una llamada `alembic_version` (es de control interno, es normal).
+3. Revisión rápida de datos: abre la tabla `monedas` y verifica que tiene **MXN (100), USD (1700) y EUR (2300)**. Los precios y tipos de cambio se guardan **en centavos** (ej. `1700` = 17.00), así que se ven como números grandes a propósito.
+
+### Paso 6 — Empezar de cero (opcional)
+
+Si algo salió mal y quieres rehacer todo limpio:
+
+```powershell
+alembic downgrade base
+```
+
+Esto borra todas las tablas del proyecto (deja la base vacía). Para un reinicio total, elimina la base `motomex` desde phpMyAdmin y vuelve al **Paso 1**. (Nota: los seeders no borran datos; por eso, para empezar limpio, primero hay que vaciar la base.)
+
+### Paso 7 — Levantar el servidor y consultar el backend
+
+> Este paso asume que **todos los endpoints ya están implementados y funcionales** (la fase de controladores/routers del backend). Mientras solo exista `/health`, los ejemplos de `/productos`, `/leads`, etc. responderán "Not Found".
+
+**Arrancar la API.** Con el `(.venv)` activo y dentro de `API-server/`:
+
+```powershell
+uvicorn app.main:app --reload
+```
+
+Esto enciende la API en **http://localhost:8000**. `--reload` hace que se reinicie sola al guardar cambios en el código. **Deja esta ventana de PowerShell abierta**: mientras siga abierta, el servidor está vivo (verás los registros de cada petición). Para apagarlo, pulsa **Ctrl + C** en esa ventana.
+
+**Comprobar que responde** (en el navegador):
+
+- http://localhost:8000/health → debe devolver `{"status":"ok"}`. Confirma que el servidor está vivo.
+- http://localhost:8000/docs → **Swagger UI**. Es la forma **más fácil** de explorar la API sin escribir comandos: lista todos los endpoints y, con el botón **"Try it out"**, puedes mandar peticiones de prueba desde el navegador. **Empieza por aquí.**
+- http://localhost:8000/redoc → la misma documentación, en formato de solo lectura.
+
+**Consultas desde la terminal.** El navegador sirve para consultas de tipo `GET`; para todo (incluido crear datos) puedes usar PowerShell. **Importante:** el servidor del Paso 7 ocupa su propia ventana, así que abre **otra ventana de PowerShell** para estos comandos.
+
+Ejemplos de **lectura** (`GET`):
+
+```powershell
+# Listar todos los productos
+Invoke-RestMethod http://localhost:8000/productos
+
+# Filtrar productos por marca
+Invoke-RestMethod "http://localhost:8000/productos?marca=Nissan"
+
+# Filtrar por precio mínimo (en centavos: 100000 = $1,000.00)
+Invoke-RestMethod "http://localhost:8000/productos?precio_minimo=100000"
+
+# Ver un producto por su id
+Invoke-RestMethod http://localhost:8000/productos/1
+
+# Buscar el chat de un cliente por su id de WhatsApp
+Invoke-RestMethod "http://localhost:8000/leads?chat_whatsapp_id=521812345678"
+```
+
+Ejemplo de **creación** (`POST` con cuerpo JSON) — registrar un nuevo cliente (lead):
+
+```powershell
+$cuerpo = @'
+{
+  "chat_whatsapp_id": "521812345678",
+  "nombre_whatsapp": "Juan",
+  "telefono": "+5218112345678",
+  "nombre": "Juan Pérez",
+  "ciudad": "Monterrey",
+  "productos_interes": ["L-24"],
+  "vehiculo": [{"modelo": "Versa", "marca": "Nissan", "anio": 2015}],
+  "direccion_envio": "Av. Siempre Viva 123",
+  "intencion_de_compra_id": 3
+}
+'@
+
+Invoke-RestMethod -Method Post -Uri http://localhost:8000/leads `
+  -ContentType "application/json" -Body $cuerpo
+```
+
+> Si prefieres `curl` (también disponible en Windows), el equivalente del primer GET es:
+> `curl http://localhost:8000/productos`
+
+**Notas para no confundirse:**
+
+- El **servidor** (Paso 7) y los comandos de consulta van en **ventanas separadas**: la del servidor queda "ocupada" mostrando registros.
+- Los **precios** en las respuestas vienen **en centavos**: `189900` significa $1,899.00. Quien consume la API (el chatbot) los convierte a pesos al mostrarlos.
+- La lista completa y siempre actualizada de endpoints, con sus parámetros y respuestas, está en **http://localhost:8000/docs**. Para el detalle del contrato, ver [`API-server/specs/endpoints.md`](./API-server/specs/endpoints.md).

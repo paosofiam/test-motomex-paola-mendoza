@@ -12,7 +12,7 @@ de controladores; aquí los métodos devuelven instancias ORM con `marca`/`moned
 - `delete` es soft delete; deja intactas las filas de relación.
 """
 
-from sqlalchemy import ForeignKey, Integer, JSON, String, select
+from sqlalchemy import ForeignKey, Integer, JSON, String, func, select
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
 from app.core import resolvers
@@ -20,6 +20,7 @@ from app.core.mixins import TimestampMixin, _now
 from app.core.normalization import normalize
 from app.database import Base
 from app.models.marca_model import MarcaModel
+from app.models.moneda_model import MonedaModel
 from app.models.producto_categoria_model import ProductoCategoriaModel
 from app.models.producto_ciudad_model import ProductoCiudadModel
 from app.models.producto_vehiculo_model import ProductoVehiculoModel
@@ -59,10 +60,10 @@ class ProductoModel(TimestampMixin, Base):
         marca: str | None = None,
         precio_minimo: int | None = None,
     ) -> list["ProductoModel"]:
-        """Búsqueda activa por `marca` (string normalizado, vía join) y/o `precio_minimo`.
+        """Búsqueda activa por `marca` (string normalizado) y/o `precio_minimo` (MXN centavos).
 
-        Nota: `precio_minimo` compara contra el `precio` almacenado en centavos (moneda
-        original). El filtrado normalizado a MXN se incorporará con la capa de shaping.
+        `precio_minimo` filtra por precio ya convertido a MXN vía JOIN con `monedas`:
+        `ROUND(precio * tipo_de_cambio / 100.0) >= precio_minimo`.
         """
         stmt = select(cls).where(cls.deleted_at.is_(None))
         if marca is not None:
@@ -71,7 +72,9 @@ class ProductoModel(TimestampMixin, Base):
                 MarcaModel.deleted_at.is_(None),
             )
         if precio_minimo is not None:
-            stmt = stmt.where(cls.precio >= precio_minimo)
+            stmt = stmt.join(MonedaModel, cls.moneda_id == MonedaModel.id).where(
+                func.round(cls.precio * MonedaModel.tipo_de_cambio / 100.0) >= precio_minimo
+            )
         return list(db.scalars(stmt))
 
     @classmethod
@@ -127,11 +130,6 @@ class ProductoModel(TimestampMixin, Base):
                 producto_id=producto.id, ciudad_id=ciu.id, created_at=ts, updated_at=ts
             ))
 
-        # TODO (services layer): el commit se moverá al servicio que conecte modelo y controlador;
-        # el modelo pasará a hacer solo flush() para que múltiples operaciones puedan componerse
-        # en una sola transacción atómica. Los métodos de solo lectura (get_all, get_by_id,
-        # search) nunca comitean — solo los métodos de escritura (create, delete) lo hacen aquí.
-        db.commit()
         db.refresh(producto)
         return producto
 
@@ -142,6 +140,4 @@ class ProductoModel(TimestampMixin, Base):
         if producto is None:
             return False
         producto.deleted_at = _now()
-        # TODO (services layer): ver nota en create().
-        db.commit()
         return True
