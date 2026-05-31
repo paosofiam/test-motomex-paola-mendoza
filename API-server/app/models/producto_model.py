@@ -6,7 +6,9 @@ Notas de contrato (la conversión a MXN y el shaping de respuesta viven en la fu
 de controladores; aquí los métodos devuelven instancias ORM con `marca`/`moneda` cargadas):
 - `precio` se almacena en centavos en la moneda original (`moneda_id`).
 - `create` resuelve por find-or-create: `marca` (string), `vehiculos` [{modelo,marca,anio}]
-  (cascada marca), `categorias` [string], `ciudades` [string]; persiste las filas de relación.
+  (cascada marca), `categorias` [string]. Para `ciudades` el comportamiento es find-or-fail
+  efectivo: la BD exige estado_id NOT NULL que el payload de productos no transporta; falla
+  con ResolutionError si la ciudad aún no existe en el catálogo.
 - `delete` es soft delete; deja intactas las filas de relación.
 """
 
@@ -65,7 +67,8 @@ class ProductoModel(TimestampMixin, Base):
         stmt = select(cls).where(cls.deleted_at.is_(None))
         if marca is not None:
             stmt = stmt.join(MarcaModel, cls.marca_id == MarcaModel.id).where(
-                MarcaModel.marca == normalize(marca)
+                MarcaModel.marca == normalize(marca),
+                MarcaModel.deleted_at.is_(None),
             )
         if precio_minimo is not None:
             stmt = stmt.where(cls.precio >= precio_minimo)
@@ -86,8 +89,11 @@ class ProductoModel(TimestampMixin, Base):
         categorias: list[str] | None = None,
         ciudades: list[str] | None = None,
     ) -> "ProductoModel":
-        """Crea un producto resolviendo catálogos por find-or-create y sus relaciones.
+        """Crea un producto resolviendo catálogos y sus relaciones.
 
+        - `marca`, `vehiculos`, `categorias`: find-or-create (catálogos conversacionales).
+        - `ciudades`: find-or-fail efectivo — la BD exige estado_id NOT NULL que este
+          payload no transporta; lanza ResolutionError si la ciudad no existe en catálogo.
         `created_at == updated_at`. Hace commit y devuelve el producto recién creado.
         """
         marca_row = resolvers.find_or_create_marca(db, marca)
@@ -121,6 +127,10 @@ class ProductoModel(TimestampMixin, Base):
                 producto_id=producto.id, ciudad_id=ciu.id, created_at=ts, updated_at=ts
             ))
 
+        # TODO (services layer): el commit se moverá al servicio que conecte modelo y controlador;
+        # el modelo pasará a hacer solo flush() para que múltiples operaciones puedan componerse
+        # en una sola transacción atómica. Los métodos de solo lectura (get_all, get_by_id,
+        # search) nunca comitean — solo los métodos de escritura (create, delete) lo hacen aquí.
         db.commit()
         db.refresh(producto)
         return producto
@@ -132,5 +142,6 @@ class ProductoModel(TimestampMixin, Base):
         if producto is None:
             return False
         producto.deleted_at = _now()
+        # TODO (services layer): ver nota en create().
         db.commit()
         return True

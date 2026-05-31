@@ -8,14 +8,20 @@ Importante: son funciones sueltas que operan con `db: Session`, NO métodos de l
 modelos de catálogo. Así se respeta la matriz "solo 2 modelos funcionales": los
 catálogos siguen sin métodos propios y crecen solo por find-or-create.
 
-Política (de endpoints.md):
+Política (de contracts.md / endpoints.md):
 - `marca`, `vehiculos`, `categorias` en productos → find-or-create (cascada marca en vehiculos).
-- `ciudad` en leads → find-or-fail (find_ciudad_or_fail).
+- `ciudades` en productos → find-or-fail efectivo: la BD exige estado_id NOT NULL que el
+  payload de productos no transporta; se resuelve solo si la ciudad ya existe en catálogo.
+- `ciudad` en leads → find-or-fail explícito (find_ciudad_or_fail).
 - `productos_interes` en leads → find-or-fail por `productos.modelo` (puede devolver varios).
 - Toda query filtra `deleted_at IS NULL`.
 
 Los valores Tier 2 se almacenan y consultan SIEMPRE normalizados (ver `normalize`).
 """
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -24,8 +30,18 @@ from app.core.exceptions import ResolutionError
 from app.core.mixins import _now
 from app.core.normalization import normalize
 
+# Importaciones solo para el type-checker; no se ejecutan en runtime (evitan importaciones
+# circulares: producto_model → resolvers → producto_model).
+if TYPE_CHECKING:
+    from app.models.categoria_model import CategoriaModel
+    from app.models.chat_model import ChatModel
+    from app.models.ciudad_model import CiudadModel
+    from app.models.marca_model import MarcaModel
+    from app.models.producto_model import ProductoModel
+    from app.models.vehiculo_model import VehiculoModel
 
-def find_or_create_marca(db: Session, marca: str):
+
+def find_or_create_marca(db: Session, marca: str) -> MarcaModel:
     """Devuelve la MarcaModel cuyo nombre normalizado coincide; la crea si no existe."""
     from app.models.marca_model import MarcaModel
 
@@ -41,7 +57,7 @@ def find_or_create_marca(db: Session, marca: str):
     return row
 
 
-def find_or_create_categoria(db: Session, categoria: str):
+def find_or_create_categoria(db: Session, categoria: str) -> CategoriaModel:
     """Devuelve la CategoriaModel normalizada; la crea si no existe."""
     from app.models.categoria_model import CategoriaModel
 
@@ -59,7 +75,7 @@ def find_or_create_categoria(db: Session, categoria: str):
     return row
 
 
-def find_or_create_vehiculo(db: Session, modelo: str, marca: str, anio: int):
+def find_or_create_vehiculo(db: Session, modelo: str, marca: str, anio: int) -> VehiculoModel:
     """Find-or-create determinista por la tripleta (modelo, marca_id, anio).
 
     Si la marca del vehículo no existe, se crea en cascada (find_or_create_marca).
@@ -86,7 +102,7 @@ def find_or_create_vehiculo(db: Session, modelo: str, marca: str, anio: int):
     return row
 
 
-def find_or_create_ciudad(db: Session, ciudad: str, estado_id: int | None = None):
+def find_or_create_ciudad(db: Session, ciudad: str, estado_id: int | None = None) -> CiudadModel:
     """Devuelve la CiudadModel normalizada.
 
     Crear una ciudad nueva exige `estado_id` (la columna es NOT NULL y el campo derivado
@@ -114,7 +130,7 @@ def find_or_create_ciudad(db: Session, ciudad: str, estado_id: int | None = None
     return row
 
 
-def find_ciudad_or_fail(db: Session, ciudad: str):
+def find_ciudad_or_fail(db: Session, ciudad: str) -> CiudadModel:
     """Find-or-fail de ciudad (usado por leads). Lanza ResolutionError si no existe."""
     from app.models.ciudad_model import CiudadModel
 
@@ -127,7 +143,7 @@ def find_ciudad_or_fail(db: Session, ciudad: str):
     return row
 
 
-def find_productos_by_modelo_or_fail(db: Session, modelo: str) -> list:
+def find_productos_by_modelo_or_fail(db: Session, modelo: str) -> list[ProductoModel]:
     """Find-or-fail por `productos.modelo`. Puede devolver VARIOS productos (ambigüedad
     de catálogo); la relación se persiste con todos los matches. Lanza ResolutionError si
     no hay ninguno. `productos` es inventario real: no se crea por interés del cliente.

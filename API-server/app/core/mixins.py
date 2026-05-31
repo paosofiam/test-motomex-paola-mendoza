@@ -21,6 +21,11 @@ def _now() -> datetime:
 
 class TimestampMixin:
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # `created_at` tiene default=_now como fallback de conveniencia.
+    # `updated_at` NO tiene default: debe asignarse con el MISMO `ts = _now()` que `created_at`
+    # para garantizar created_at == updated_at en INSERT (spec: contrato de modelo).
+    # Si ambas columnas usaran default=_now, SQLAlchemy llamaría _now() en momentos distintos
+    # → created_at ≠ updated_at en la base de datos, violando la invariante silenciosamente.
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=None)

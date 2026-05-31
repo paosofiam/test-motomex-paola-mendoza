@@ -13,6 +13,8 @@ los métodos devuelven la instancia ORM con relaciones cargadas):
   [{modelo,marca,anio}] es find-or-create (cascada marca).
 """
 
+from datetime import datetime
+
 from sqlalchemy import ForeignKey, Index, String, select
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
@@ -102,6 +104,10 @@ class LeadModel(TimestampMixin, Base):
         cls._sync_productos_interes(db, lead.id, productos_interes, ts)
         cls._sync_vehiculos(db, lead.id, vehiculo, ts)
 
+        # TODO (services layer): el commit se moverá al servicio que conecte modelo y controlador;
+        # el modelo pasará a hacer solo flush() para que múltiples operaciones puedan componerse
+        # en una sola transacción atómica. Los métodos de solo lectura (get_by_id) nunca
+        # comitean — solo los métodos de escritura (create, update) lo hacen aquí.
         db.commit()
         db.refresh(lead)
         return lead
@@ -148,6 +154,7 @@ class LeadModel(TimestampMixin, Base):
             cls._sync_vehiculos(db, lead.id, vehiculo, ts, replace=True)
 
         lead.updated_at = ts
+        # TODO (services layer): ver nota en create().
         db.commit()
         db.refresh(lead)
         return lead
@@ -155,7 +162,15 @@ class LeadModel(TimestampMixin, Base):
     # ---- Helpers internos de relaciones --------------------------------------
 
     @staticmethod
-    def _sync_link_rows(db, model, lead_id, desired_ids, fk_name, ts, replace):
+    def _sync_link_rows(
+        db: Session,
+        model: type,  # clase ORM de tabla de relación con columna lead_id (LeadProductoModel | LeadVehiculoModel)
+        lead_id: int,
+        desired_ids: list[int],
+        fk_name: str,
+        ts: datetime,
+        replace: bool,
+    ) -> None:
         """Reconcilia filas de relación respetando soft-delete + UNIQUE(lead_id, fk).
 
         Reactiva filas soft-deleted que vuelven al conjunto deseado (evita violar el UNIQUE
@@ -182,7 +197,14 @@ class LeadModel(TimestampMixin, Base):
                     row.deleted_at = ts
 
     @classmethod
-    def _sync_productos_interes(cls, db, lead_id, productos_interes, ts, replace=False):
+    def _sync_productos_interes(
+        cls,
+        db: Session,
+        lead_id: int,
+        productos_interes: list[str] | None,
+        ts: datetime,
+        replace: bool = False,
+    ) -> None:
         if productos_interes is None:
             if replace:
                 cls._sync_link_rows(db, LeadProductoModel, lead_id, [], "producto_id", ts, True)
@@ -194,7 +216,14 @@ class LeadModel(TimestampMixin, Base):
         cls._sync_link_rows(db, LeadProductoModel, lead_id, producto_ids, "producto_id", ts, replace)
 
     @classmethod
-    def _sync_vehiculos(cls, db, lead_id, vehiculo, ts, replace=False):
+    def _sync_vehiculos(
+        cls,
+        db: Session,
+        lead_id: int,
+        vehiculo: list[dict] | None,
+        ts: datetime,
+        replace: bool = False,
+    ) -> None:
         if vehiculo is None:
             if replace:
                 cls._sync_link_rows(db, LeadVehiculoModel, lead_id, [], "vehiculo_id", ts, True)

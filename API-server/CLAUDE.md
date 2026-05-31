@@ -71,4 +71,4 @@ Dominio en **español** (la tabla de convenciones usa ejemplos en inglés como `
 - `app/config.py` carga `.env` vía pydantic-settings: `settings.DATABASE_URL` y `settings.APP_NAME` (nombres en MAYÚSCULAS, como en el scaffold real). El `engine` ya usa `settings.DATABASE_URL`.
 - MySQL de XAMPP, BD `motomex` (`utf8mb4_unicode_ci`) creada a mano en phpMyAdmin antes de migrar.
 - `unidecode` (en requirements) es para la normalización Tier 2; `alembic` para migraciones.
-- **Nunca** leas/edites/commitees `.env` (solo `.env.example`).
+- Puedes **leer** `.env` para obtener credenciales o diagnosticar problemas de conexión. No hay datos de producción sensibles ni API keys en este proyecto. **No commitees** `.env` (solo `.env.example`).
