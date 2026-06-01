@@ -79,14 +79,22 @@ def test_post_ignores_estado_in_body(client, seed_catalogs):
     assert r.json()["estado"] == "Jalisco"
 
 
-def test_post_unknown_intencion_behavior(client_no_raise, seed_catalogs):
-    # Zona gris documentada: `intencion_de_compra_id` NO se valida explícitamente en el service.
-    # Con un id inexistente, la FK de MySQL dispara IntegrityError → handler genérico → 500
-    # (NO un 404/422 limpio). Es un posible gap del contrato, no el comportamiento ideal.
-    # Se usa `client_no_raise` porque el TestClient normal re-lanzaría la excepción del servidor.
-    r = client_no_raise.post("/leads", json=_payload(intencion_de_compra_id=99999))
-    assert r.status_code == 500
+def test_post_unknown_intencion_is_422(client, seed_catalogs):
+    # `intencion_de_compra_id` es Tier 1 (catálogo): un id que no resuelve → 422 ResolutionError
+    # con field/value_received (no un 500 por FK rota).
+    r = client.post("/leads", json=_payload(intencion_de_compra_id=99999))
+    assert r.status_code == 422
     assert r.headers["content-type"].startswith("application/problem+json")
+    body = r.json()
+    assert body["field"] == "intencion_de_compra_id"
+    assert body["value_received"] == 99999
+
+
+def test_patch_unknown_intencion_is_422(client, seed_catalogs):
+    lead_id = client.post("/leads", json=_payload()).json()["id"]
+    r = client.patch(f"/leads/{lead_id}", json={"intencion_de_compra_id": 99999})
+    assert r.status_code == 422
+    assert r.json()["field"] == "intencion_de_compra_id"
 
 
 # --- GET (lista) ----------------------------------------------------------------------------

@@ -40,10 +40,14 @@ def test_post_unknown_lead_404(client, seed_catalogs):
     assert r.status_code == 404
 
 
-def test_post_unknown_chat_status_404(client, seed_catalogs):
-    # chat_status_id inexistente → 404 (NotFoundError), NO 422.
+def test_post_unknown_chat_status_is_422(client, seed_catalogs):
+    # chat_status_id es Tier 1 (catálogo): id que no resuelve → 422 ResolutionError con field.
+    # (lead_id, Tier 3, sigue siendo 404 — ver test anterior.)
     lead = _create_lead(client)
-    assert client.post("/chats", json=_chat_payload(lead, chat_status_id=999)).status_code == 404
+    r = client.post("/chats", json=_chat_payload(lead, chat_status_id=999))
+    assert r.status_code == 422
+    assert r.json()["field"] == "chat_status_id"
+    assert r.json()["value_received"] == 999
 
 
 def test_post_enforces_one_active_chat_per_lead(client, seed_catalogs, db):
@@ -82,10 +86,12 @@ def test_patch_updates_status_and_resumen(client, seed_catalogs):
     assert isinstance(r.json()["status"], str)
 
 
-def test_patch_unknown_chat_status_404(client, seed_catalogs):
+def test_patch_unknown_chat_status_is_422(client, seed_catalogs):
     lead = _create_lead(client)
     cid = client.post("/chats", json=_chat_payload(lead)).json()["id"]
-    assert client.patch(f"/chats/{cid}", json={"chat_status_id": 999}).status_code == 404
+    r = client.patch(f"/chats/{cid}", json={"chat_status_id": 999})
+    assert r.status_code == 422
+    assert r.json()["field"] == "chat_status_id"
 
 
 def test_patch_unknown_chat_404(client, seed_catalogs):

@@ -12,7 +12,7 @@ Construcción de la respuesta (`endpoints.md`): `status` es Tier 1 derivado (str
 
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import NotFoundError, ResolutionError
 from app.models.chat_model import ChatModel
 from app.models.chat_status_model import ChatStatusModel
 from app.models.lead_model import LeadModel
@@ -31,14 +31,15 @@ def _to_response(chat: ChatModel) -> ChatResponse:
 
 
 def create(db: Session, payload: ChatCreate) -> ChatResponse:
-    """Crea un chat. Valida `lead_id` y `chat_status_id` (Tier 1) → `NotFoundError` (→ 404). El
+    """Crea un chat. `lead_id` (Tier 3) inexistente → `NotFoundError` (→ 404); `chat_status_id`
+    (Tier 1, catálogo) que no resuelve → `ResolutionError` (→ 422 con `field`/`value_received`). El
     soft-delete del chat activo previo del mismo lead lo realiza `ChatModel.create` (un chat activo
     por lead).
     """
     if LeadModel.get_by_id(db, payload.lead_id) is None:
         raise NotFoundError("Lead", payload.lead_id)
     if ChatStatusModel.get_by_id(db, payload.chat_status_id) is None:
-        raise NotFoundError("ChatStatus", payload.chat_status_id)
+        raise ResolutionError(field="chat_status_id", value_received=payload.chat_status_id)
 
     chat = ChatModel.create(db, **payload.model_dump())
     return _to_response(chat)
@@ -64,12 +65,13 @@ def update(db: Session, chat_id: int, payload: ChatUpdate) -> ChatResponse:
     """Actualización parcial (PATCH). Solo `chat_status_id` y `resumen` (lead_id/chat_whatsapp_id
     son inmutables). `exclude_unset=True` pasa solo los campos enviados, alineado con el sentinel
     `_UNSET` de `ChatModel.update`. Si se envía `chat_status_id` no nulo, valida su existencia
-    (→ `NotFoundError`) antes de actualizar para evitar un fallo de FK en el flush.
+    (Tier 1 → `ResolutionError`/422 con `field`/`value_received`) antes de actualizar para evitar un
+    fallo de FK en el flush.
     """
     cambios = payload.model_dump(exclude_unset=True)
     nuevo_status_id = cambios.get("chat_status_id")
     if nuevo_status_id is not None and ChatStatusModel.get_by_id(db, nuevo_status_id) is None:
-        raise NotFoundError("ChatStatus", nuevo_status_id)
+        raise ResolutionError(field="chat_status_id", value_received=nuevo_status_id)
 
     chat = ChatModel.update(db, chat_id, **cambios)
     if chat is None:

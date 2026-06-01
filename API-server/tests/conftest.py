@@ -68,34 +68,18 @@ def db():
     conn.close()
 
 
-def _client(db, *, raise_server_exceptions=True):
+@pytest.fixture
+def client(db):
     """`TestClient` sobre la misma sesión `db` del test (override de `get_db`).
 
     El endpoint comparte la transacción+savepoint del test, así que lo que escribe vía HTTP es
     visible en `db` para las aserciones y se revierte al final (sin tocar la BD real). El override
     devuelve la sesión directamente: NO ejecuta el `commit()/close()` de `get_db`, porque el
-    aislamiento ya lo gestiona la fixture `db`.
+    aislamiento ya lo gestiona la fixture `db`. Re-lanza excepciones no controladas (default), así
+    un 500 inesperado falla el test de forma ruidosa.
     """
     fastapi_app.dependency_overrides[get_db] = lambda: db
-    return TestClient(fastapi_app, raise_server_exceptions=raise_server_exceptions)
-
-
-@pytest.fixture
-def client(db):
-    """`TestClient` que RE-LANZA excepciones no controladas (default): un 500 inesperado falla el test."""
-    with _client(db) as c:
-        yield c
-    fastapi_app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def client_no_raise(db):
-    """`TestClient` que NO re-lanza: devuelve la respuesta 500 real (RFC 7807) que vería el cliente.
-
-    Necesario para observar el comportamiento de producción cuando una excepción no controlada
-    (p. ej. `IntegrityError` de una FK no validada en el service) llega al handler genérico.
-    """
-    with _client(db, raise_server_exceptions=False) as c:
+    with TestClient(fastapi_app) as c:
         yield c
     fastapi_app.dependency_overrides.clear()
 

@@ -12,7 +12,8 @@ Construcción de la respuesta (`endpoints.md`): `precio` SIEMPRE en MXN centavos
 
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import NotFoundError, ResolutionError
+from app.models.moneda_model import MonedaModel
 from app.models.producto_model import ProductoModel
 from app.schemas.producto import ProductoCreate, ProductoResponse
 
@@ -50,7 +51,12 @@ def get_by_id(db: Session, producto_id: int) -> ProductoResponse:
 def create(db: Session, payload: ProductoCreate) -> ProductoResponse:
     """Crea un producto (find-or-create de catálogos Tier 2). `model_dump()` ya convierte
     `vehiculos` a `list[dict]`; los campos de `ProductoCreate` coinciden con los kwargs de `create`.
+
+    `moneda_id` es Tier 1 (catálogo): si el id no resuelve, se lanza `ResolutionError` (→ 422 con
+    `field`/`value_received`) en vez de dejar fallar la FK (que daría un 500 opaco).
     """
+    if MonedaModel.get_by_id(db, payload.moneda_id) is None:
+        raise ResolutionError(field="moneda_id", value_received=payload.moneda_id)
     producto = ProductoModel.create(db, **payload.model_dump())
     return _to_response(producto)
 

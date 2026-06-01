@@ -84,6 +84,16 @@ def test_post_rejects_negative_stock(client, seed_catalogs):
     assert client.post("/productos", json=_payload(stock=-1)).status_code == 422
 
 
+def test_post_unknown_moneda_is_422(client, seed_catalogs):
+    # moneda_id es Tier 1 (catálogo): id que no resuelve → 422 ResolutionError con field
+    # (no un 500 por FK rota).
+    r = client.post("/productos", json=_payload(moneda_id=99999))
+    assert r.status_code == 422
+    assert r.headers["content-type"].startswith("application/problem+json")
+    assert r.json()["field"] == "moneda_id"
+    assert r.json()["value_received"] == 99999
+
+
 # --- GET (lista) ----------------------------------------------------------------------------
 
 def test_get_list_filters_by_marca_and_excludes_deleted(client, seed_catalogs, db):
