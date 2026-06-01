@@ -41,7 +41,7 @@ Para construir una capa, invoca la skill correspondiente:
 | Modelo | Métodos permitidos |
 | --- | --- |
 | `ProductoModel` | `get_all`, `get_by_id`, `search`, `create`, `delete` |
-| `LeadModel` | `get_by_id`, `create`, `update` |
+| `LeadModel` | `get_by_id`, `search`, `create`, `update` |
 | `ChatModel` | `get_by_id`, `get_by_chat_whatsapp_id`, `get_by_lead`, `create`, `update`, `delete` |
 | `VehiculoModel` | `get_all`, `get_by_id`, `create` |
 | `MarcaModel` | `get_all`, `get_by_id`, `create` |
@@ -52,7 +52,7 @@ Para construir una capa, invoca la skill correspondiente:
 | `ChatStatusModel` | `get_all`, `get_by_id` |
 | `PreOrdenModel` | `create` |
 
-`ProductoModel` **no** tiene `update`. `ChatStatusModel` **no** tiene `create` (Tier 1 estático poblado por seeder). `PreOrdenModel` **solo** `create`.
+`ProductoModel` **no** tiene `update`. `ChatStatusModel` **no** tiene `create` (Tier 1 estático poblado por seeder). `PreOrdenModel` **solo** `create`. `LeadModel.search` respalda `GET /leads` (filtros por `chat_whatsapp_id`/`intencion_de_compra`).
 
 ## Clasificación Tier (catálogos)
 

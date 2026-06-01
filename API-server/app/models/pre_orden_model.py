@@ -10,7 +10,6 @@ y envía el total convertido en el body; el modelo lo persiste sin recalcular.
 from sqlalchemy import ForeignKey, Integer
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
-from app.core.exceptions import NotFoundError
 from app.core.mixins import TimestampMixin, _now
 from app.database import Base
 from app.models.pre_orden_producto_model import PreOrdenProductoModel
@@ -42,22 +41,14 @@ class PreOrdenModel(TimestampMixin, Base):
     ) -> "PreOrdenModel":
         """Crea una pre-orden con sus líneas de producto.
 
-        Valida lead_id y cada producto_id (find-or-fail → NotFoundError → 404).
+        Solo consulta/inserta en BD. La validación de existencia de `lead_id` y de cada
+        `producto_id` vive en la capa service (`pre_orden_service.create`), que lanza
+        `NotFoundError` antes de invocar este método.
         `total` se recibe ya en MXN centavos (el agente lo calcula previamente).
         `created_at == updated_at` (mismo ts). Hace flush y devuelve la instancia
         con pre_orden_productos cargados (selectin) para que el service construya
         la respuesta.
         """
-        # Deferred: LeadModel importa resolvers; defensivo ante cambios futuros
-        from app.models.lead_model import LeadModel
-        from app.models.producto_model import ProductoModel
-
-        if LeadModel.get_by_id(db, lead_id) is None:
-            raise NotFoundError("Lead", lead_id)
-        for item in productos:
-            if ProductoModel.get_by_id(db, item["producto_id"]) is None:
-                raise NotFoundError("Producto", item["producto_id"])
-
         ts = _now()
         pre_orden = cls(lead_id=lead_id, total=total, created_at=ts, updated_at=ts)
         db.add(pre_orden)
@@ -76,30 +67,3 @@ class PreOrdenModel(TimestampMixin, Base):
         db.flush()
         db.refresh(pre_orden)
         return pre_orden
-
-    # PENDIENTE service (pre_orden_service.py):
-    #   from app.schemas.pre_orden import PreOrdenCreate, PreOrdenProductoResponse, PreOrdenResponse
-    #
-    #   def _to_response(pre_orden: PreOrdenModel) -> PreOrdenResponse:
-    #       return PreOrdenResponse(
-    #           id=pre_orden.id, lead_id=pre_orden.lead_id, total=pre_orden.total,
-    #           productos=[
-    #               PreOrdenProductoResponse(
-    #                   producto_id=linea.producto_id,
-    #                   modelo=linea.producto.modelo,   # lazy="joined" en PreOrdenProductoModel
-    #                   cantidad=linea.cantidad,
-    #               )
-    #               for linea in pre_orden.pre_orden_productos  # lazy="selectin"
-    #           ],
-    #       )
-    #
-    #   def create(db, payload: PreOrdenCreate) -> PreOrdenResponse:
-    #       pre_orden = PreOrdenModel.create(
-    #           db, lead_id=payload.lead_id, total=payload.total,
-    #           productos=[p.model_dump() for p in payload.productos],
-    #       )
-    #       return _to_response(pre_orden)
-    #
-    # NOTA: PreOrdenResponse.from_attributes=True pero 'productos' no mapea automáticamente
-    # (atributo ORM = pre_orden_productos ≠ productos; modelo no es columna directa).
-    # La construcción manual en _to_response es obligatoria.

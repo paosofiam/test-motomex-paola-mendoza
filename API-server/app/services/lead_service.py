@@ -75,7 +75,10 @@ def create(db: Session, payload: LeadCreate) -> LeadResponse:
 
 def update(db: Session, lead_id: int, payload: LeadUpdate) -> LeadResponse:
     """Actualización parcial (PATCH). `exclude_unset=True` pasa solo los campos enviados, alineado
-    con el sentinel `_UNSET` de `LeadModel.update` (que ya lanza `NotFoundError` si no existe).
+    con el sentinel `_UNSET` de `LeadModel.update`. Lanza `NotFoundError` (→ 404) si el lead no
+    existe o está soft-deleted (el modelo devuelve `None`).
     """
     lead = LeadModel.update(db, lead_id, **payload.model_dump(exclude_unset=True))
+    if lead is None:
+        raise NotFoundError("Lead", lead_id)
     return _to_response(db, lead)

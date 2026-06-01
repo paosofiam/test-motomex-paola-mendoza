@@ -16,7 +16,6 @@ los métodos devuelven la instancia ORM con `chat_status` cargado):
 from sqlalchemy import ForeignKey, Index, String, Text, select
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
-from app.core.exceptions import NotFoundError
 from app.core.mixins import TimestampMixin, _now
 from app.database import Base
 from app.models.chat_status_model import ChatStatusModel
@@ -110,13 +109,14 @@ class ChatModel(TimestampMixin, Base):
         *,
         chat_status_id=_UNSET,
         resumen=_UNSET,
-    ) -> "ChatModel":
+    ) -> "ChatModel | None":
         """PATCH parcial. `lead_id` y `chat_whatsapp_id` son inmutables (no son parámetros).
-        Solo actualiza los campos provistos. Refresca `updated_at`.
+        Solo actualiza los campos provistos. Refresca `updated_at`. Devuelve `None` si no existe
+        o está soft-deleted (la traducción a `NotFoundError` vive en la capa service).
         """
         chat = cls.get_by_id(db, chat_id)
         if chat is None:
-            raise NotFoundError("Chat", chat_id)
+            return None
 
         if chat_status_id is not _UNSET:
             chat.chat_status_id = chat_status_id
@@ -124,6 +124,7 @@ class ChatModel(TimestampMixin, Base):
             chat.resumen = resumen
 
         chat.updated_at = _now()
+        db.flush()  # persiste los cambios antes de refresh (refresh descarta lo no flusheado)
         db.refresh(chat)
         return chat
 

@@ -1,6 +1,6 @@
 """Entidad Tier 3: leads — MODELO FUNCIONAL.
 
-Métodos permitidos (matriz): get_by_id, create, update.
+Métodos permitidos (matriz): get_by_id, search, create, update.
 
 Notas de contrato (el shaping de respuesta vive en la capa service, `lead_service.py`; aquí
 los métodos devuelven la instancia ORM con relaciones cargadas):
@@ -19,7 +19,6 @@ from sqlalchemy import ForeignKey, Index, String, select
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
 from app.core import resolvers
-from app.core.exceptions import NotFoundError
 from app.core.mixins import TimestampMixin, _now
 from app.database import Base
 from app.models.intencion_de_compra_de_lead_model import IntencionDeCompraDeLeadModel
@@ -140,13 +139,14 @@ class LeadModel(TimestampMixin, Base):
         vehiculo=_UNSET,
         direccion_envio=_UNSET,
         intencion_de_compra_id=_UNSET,
-    ) -> "LeadModel":
+    ) -> "LeadModel | None":
         """PATCH parcial. `chat_whatsapp_id` es inmutable (no es parámetro). Refresca SOLO
-        `updated_at`. Re-resuelve/reemplaza relaciones para los campos provistos.
+        `updated_at`. Re-resuelve/reemplaza relaciones para los campos provistos. Devuelve `None`
+        si el lead no existe o está soft-deleted (la traducción a `NotFoundError` vive en el service).
         """
         lead = cls.get_by_id(db, lead_id)
         if lead is None:
-            raise NotFoundError("Lead", lead_id)
+            return None
 
         if nombre_whatsapp is not _UNSET:
             lead.nombre_whatsapp = nombre_whatsapp
@@ -168,6 +168,7 @@ class LeadModel(TimestampMixin, Base):
             cls._sync_vehiculos(db, lead.id, vehiculo, ts, replace=True)
 
         lead.updated_at = ts
+        db.flush()  # persiste los cambios antes de refresh (refresh descarta lo no flusheado)
         db.refresh(lead)
         return lead
 

@@ -49,7 +49,7 @@ La presente sección detalla los modelos del proyecto con sus métodos permitido
 | Modelo                         | Métodos                                                                             |
 | ------------------------------ | ----------------------------------------------------------------------------------- |
 | `ProductoModel`                | `get_all`, `get_by_id`, `search`, `create`, `delete`                                |
-| `LeadModel`                    | `get_by_id`, `create`, `update`                                                     |
+| `LeadModel`                    | `get_by_id`, `search`, `create`, `update`                                           |
 | `ChatModel`                    | `get_by_id`, `get_by_chat_whatsapp_id`, `get_by_lead`, `create`, `update`, `delete` |
 | `VehiculoModel`                | `get_all`, `get_by_id`, `create`                                                    |
 | `MarcaModel`                   | `get_all`, `get_by_id`, `create`                                                    |
@@ -66,6 +66,7 @@ La presente sección detalla los modelos del proyecto con sus métodos permitido
 - Todos los métodos edit/update deben asegurar guardar el timestamp correspondiente en la columna "updated_at" del elemento a editar.
 - Todos los métodos delete deben hacer soft delete en la base de datos guardando el timestamp correspondiente en la columna "deleted_at" del elemento o fila a eliminar de la tabla, **NUNCA** hard delete que destruya por completo el elemento. Un elemento se considera activo cuando `deleted_at IS NULL`.
 - Los métodos `get_by_chat_whatsapp_id` y `get_by_lead` de `ChatModel` deben ordenar por `created_at DESC` y limitar la respuesta a **un único registro** (el chat más reciente), en cumplimiento de la regla de negocio de un solo chat activo por lead.
+- El método `search` de `LeadModel` lista leads activos con filtros opcionales por `chat_whatsapp_id` e `intencion_de_compra` (string); respalda el endpoint `GET /leads`.
 
 ## Endpoints del proyecto
 
