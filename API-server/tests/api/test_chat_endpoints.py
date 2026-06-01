@@ -1,8 +1,8 @@
 """Endpoints /chats (capa API, TestClient): POST/GET?/GET{id}/PATCH/DELETE.
 
-Cubre `status` Tier 1 derivado (string), 404 de `lead_id`/`chat_status_id` inexistentes (sin 409),
-la regla "un chat activo por lead" (el previo queda soft-deleted), inmutabilidad ignorada en PATCH
-y soft delete.
+Cubre `status` Tier 1 derivado (string), 404 de `lead_id` (Tier 3) inexistente y 422 de
+`chat_status_id` (Tier 1, find-or-fail con `field`/`value_received`), la regla "un chat activo por
+lead" (el previo queda soft-deleted), inmutabilidad ignorada en PATCH y soft delete.
 """
 
 from app.models.chat_model import ChatModel
