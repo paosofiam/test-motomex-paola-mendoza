@@ -62,13 +62,14 @@ Para construir una capa, invoca la skill correspondiente:
 
 ## Convenciones de nombres (de contracts.md)
 
-Dominio en **español** (la tabla de convenciones usa ejemplos en inglés como `ProductModel`/`product_model.py`, pero la matriz de modelos es la autoridad: usa español). Archivos `producto_model.py` → clases `ProductoModel`; `producto_controller.py` → `ProductoController`; instancias `producto_router`. Métodos/vars `snake_case` con verbo en inglés (`get_by_id`, `create`).
+Dominio en **español** (la tabla de convenciones de `contracts.md` ya usa ejemplos en español y la matriz de modelos es la autoridad). Archivos `producto_model.py` → clases `ProductoModel`; routers `productos.py` (plural, instancia `router = APIRouter(...)`); services `producto_service.py` (funciones a nivel de módulo, sin clases). Métodos/vars `snake_case` con verbo en inglés (`get_by_id`, `create`).
 
 ## Entorno (de specs + scaffold real)
 
 - Python 3.14 (`py -3.14`), venv en `API-server/.venv`, PowerShell en Windows.
 - `app/database.py` ya expone `engine`, `SessionLocal`, `Base` (`DeclarativeBase`), `get_db()`. Reusa estos; no crees otros.
 - `app/config.py` carga `.env` vía pydantic-settings: `settings.DATABASE_URL` y `settings.APP_NAME` (nombres en MAYÚSCULAS, como en el scaffold real). El `engine` ya usa `settings.DATABASE_URL`.
+- **Arranca SIEMPRE desde `API-server/`** (`cd API-server` antes de `uvicorn app.main:app --reload` o de cualquier `python -c ...`). `env_file=".env"` es **relativo al cwd**: si corres desde la raíz del repo u otro dir, NO encuentra el `.env`, cae al default `root:@localhost` (sin contraseña) y falla con un engañoso `OperationalError (1045) Access denied ... (using password: NO)` que parece problema de credenciales de MySQL pero es solo el `.env` no cargado.
 - MySQL de XAMPP, BD `motomex` (`utf8mb4_unicode_ci`) creada a mano en phpMyAdmin antes de migrar.
 - `unidecode` (en requirements) es para la normalización Tier 2; `alembic` para migraciones.
 - Puedes **leer** `.env` para obtener credenciales o diagnosticar problemas de conexión. No hay datos de producción sensibles ni API keys en este proyecto. **No commitees** `.env` (solo `.env.example`).

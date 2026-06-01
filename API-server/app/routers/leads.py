@@ -2,22 +2,21 @@
 
 Declara rutas, valida petición/respuesta con Pydantic, fija status HTTP y header `Location`, y
 documenta errores RFC 7807. La lógica (find-or-fail de `ciudad`/`productos_interes`, find-or-create
-de `vehiculo`, derivación de `estado` y `chat_id`, persistencia) vive en la capa service, aún
-pendiente: cada cuerpo marca el SEAM donde se delegará. Hasta entonces responden 501.
+de `vehiculo`, derivación de `estado` y `chat_id`, persistencia) vive en `services/lead_service.py`.
+Las excepciones de dominio que suban se traducen a `application/problem+json` vía los handlers.
 """
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas.common import ProblemDetail
 from app.schemas.lead import LeadCreate, LeadResponse, LeadUpdate
+from app.services import lead_service
 
 router = APIRouter(prefix="/leads", tags=["leads"])
-
-_PENDING = "Ruta declarada; pendiente de conexión a la capa service"
 
 
 @router.get("", response_model=list[LeadResponse])
@@ -27,13 +26,9 @@ def read_leads(
     db: Session = Depends(get_db),
 ) -> Any:
     """Lista leads activos, con filtros opcionales por `chat_whatsapp_id` e `intencion_de_compra`."""
-    # SEAM (pendiente): return lead_service.search(db, chat_whatsapp_id=..., intencion_de_compra=...)
-    # SERVICE (C2): construir LeadResponse explícitamente — ciudad=lead.ciudad.ciudad,
-    #   estado=lead.ciudad.estado.estado, chat_id=get_active_chat_id(db, lead.id),
-    #   intencion_de_compra=lead.intencion.tipo,
-    #   productos_interes=[lp.producto.modelo for lp in lead.leads_productos],
-    #   vehiculo=[VehiculoSchema(modelo=lv.vehiculo.modelo, marca=lv.vehiculo.marca.marca, anio=lv.vehiculo.anio) for lv in lead.leads_vehiculos].
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)
+    return lead_service.search(
+        db, chat_whatsapp_id=chat_whatsapp_id, intencion_de_compra=intencion_de_compra
+    )
 
 
 @router.post(
@@ -48,13 +43,9 @@ def create_lead(
     db: Session = Depends(get_db),
 ) -> Any:
     """Crea un lead. Devuelve 201 + header `Location`. 422 si un string Tier 2 no resuelve."""
-    # SEAM (pendiente):
-    #   lead = lead_service.create(db, payload)
-    #   response.headers["Location"] = f"/leads/{lead.id}"
-    #   return lead
-    # SERVICE (C2): ver nota en read_leads.
-    # SERVICE (C4): vehiculo=[v.model_dump() for v in payload.vehiculo] antes de llamar al modelo.
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)
+    lead = lead_service.create(db, payload)
+    response.headers["Location"] = f"/leads/{lead.id}"
+    return lead
 
 
 @router.get(
@@ -64,9 +55,7 @@ def create_lead(
 )
 def read_lead(lead_id: int, db: Session = Depends(get_db)) -> Any:
     """Devuelve un lead activo por id, o 404 si no existe / está soft-deleted."""
-    # SEAM (pendiente): return lead_service.get_by_id(db, lead_id)  # NotFoundError -> 404
-    # SERVICE (C2): ver nota en read_leads.
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)
+    return lead_service.get_by_id(db, lead_id)
 
 
 @router.patch(
@@ -80,7 +69,4 @@ def update_lead(
     db: Session = Depends(get_db),
 ) -> Any:
     """Actualización parcial de un lead. Devuelve el lead completo actualizado (200)."""
-    # SEAM (pendiente): return lead_service.update(db, lead_id, payload)  # solo campos enviados
-    # SERVICE (C2): ver nota en read_leads.
-    # SERVICE (C4): vehiculo=[v.model_dump() for v in payload.vehiculo] antes de llamar al modelo.
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)
+    return lead_service.update(db, lead_id, payload)

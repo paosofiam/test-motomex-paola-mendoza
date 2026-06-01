@@ -2,8 +2,8 @@
 
 Métodos permitidos (matriz): get_all, get_by_id, search, create, delete. NO update.
 
-Notas de contrato (la conversión a MXN y el shaping de respuesta viven en la futura capa
-de controladores; aquí los métodos devuelven instancias ORM con `marca`/`moneda` cargadas):
+Notas de contrato (la conversión a MXN y el shaping de respuesta viven en la capa service,
+`producto_service.py`; aquí los métodos devuelven instancias ORM con `marca`/`moneda` cargadas):
 - `precio` se almacena en centavos en la moneda original (`moneda_id`).
 - `create` resuelve por find-or-create: `marca` (string), `vehiculos` [{modelo,marca,anio}]
   (cascada marca), `categorias` [string]. Para `ciudades` el comportamiento es find-or-fail

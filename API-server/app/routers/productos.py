@@ -2,22 +2,21 @@
 
 Declara rutas, valida petición/respuesta con Pydantic, fija status HTTP y header `Location`, y
 documenta errores RFC 7807. La lógica (conversión a MXN, find-or-create de marca/vehiculos/
-categorias/ciudades, persistencia) vive en la capa service, aún pendiente: cada cuerpo marca el
-SEAM donde se delegará. Hasta entonces responden 501 (vía el handler `application/problem+json`).
+categorias/ciudades, persistencia) vive en `services/producto_service.py`. Las excepciones de
+dominio que suban se traducen a `application/problem+json` vía los handlers registrados.
 """
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas.common import ProblemDetail
 from app.schemas.producto import ProductoCreate, ProductoResponse
+from app.services import producto_service
 
 router = APIRouter(prefix="/productos", tags=["productos"])
-
-_PENDING = "Ruta declarada; pendiente de conexión a la capa service"
 
 
 @router.get("", response_model=list[ProductoResponse])
@@ -27,10 +26,7 @@ def read_productos(
     db: Session = Depends(get_db),
 ) -> Any:
     """Lista productos activos, con filtros opcionales por `marca` y `precio_minimo`."""
-    # SEAM (pendiente): return producto_service.search(db, marca=marca, precio_minimo=precio_minimo)
-    # SERVICE (C1): construir ProductoResponse explícitamente — marca=producto.marca.marca,
-    #   moneda=producto.moneda.abreviacion, precio=round(precio * tipo_de_cambio / 100).
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)
+    return producto_service.search(db, marca=marca, precio_minimo=precio_minimo)
 
 
 @router.post(
@@ -45,13 +41,9 @@ def create_producto(
     db: Session = Depends(get_db),
 ) -> Any:
     """Crea un producto (find-or-create de catálogos Tier 2). Devuelve 201 + header `Location`."""
-    # SEAM (pendiente):
-    #   producto = producto_service.create(db, payload)
-    #   response.headers["Location"] = f"/productos/{producto.id}"
-    #   return producto
-    # SERVICE (C1): ver nota en read_productos.
-    # SERVICE (C4): vehiculos=[v.model_dump() for v in payload.vehiculos] antes de llamar al modelo.
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)
+    producto = producto_service.create(db, payload)
+    response.headers["Location"] = f"/productos/{producto.id}"
+    return producto
 
 
 @router.get(
@@ -61,9 +53,7 @@ def create_producto(
 )
 def read_producto(producto_id: int, db: Session = Depends(get_db)) -> Any:
     """Devuelve un producto activo por id, o 404 si no existe / está soft-deleted."""
-    # SEAM (pendiente): return producto_service.get_by_id(db, producto_id)  # NotFoundError -> 404
-    # SERVICE (C1): ver nota en read_productos.
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)
+    return producto_service.get_by_id(db, producto_id)
 
 
 @router.delete(
@@ -73,5 +63,4 @@ def read_producto(producto_id: int, db: Session = Depends(get_db)) -> Any:
 )
 def delete_producto(producto_id: int, db: Session = Depends(get_db)) -> None:
     """Soft-delete de un producto (set `deleted_at`). 204 sin body; 404 si no existe."""
-    # SEAM (pendiente): producto_service.delete(db, producto_id)  # soft delete; NotFoundError -> 404
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)
+    producto_service.delete(db, producto_id)

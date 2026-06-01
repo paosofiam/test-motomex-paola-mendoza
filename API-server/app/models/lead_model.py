@@ -2,7 +2,7 @@
 
 Métodos permitidos (matriz): get_by_id, create, update.
 
-Notas de contrato (el shaping de respuesta vive en la futura capa de controladores; aquí
+Notas de contrato (el shaping de respuesta vive en la capa service, `lead_service.py`; aquí
 los métodos devuelven la instancia ORM con relaciones cargadas):
 - `chat_id` y `estado` NO son columnas: son derivados de respuesta. `estado` se resuelve por
   `ciudad → ciudades.estado_id → estados.estado` (relación `ciudad.estado` cargada).

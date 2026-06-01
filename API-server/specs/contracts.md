@@ -1,9 +1,10 @@
 ## Stack de Backend API
 - Motor de Base de datos: MySQL (visible desde phpmyadmin y MySQL)
 - Framework de backend: FastAPI
-- Arquitectura: inspirada en el patrón MVC, implementada siguiendo la estructura estándar y las mejores prácticas de FastAPI.
-	- Modelos: Con ORM de SQLAlchemy y validaciones de Pydantic.
-	- Controladores: Con manejo de excepciones con decoradores, manejo de status HTTP y Estructura de Respuestas.
+- Arquitectura: capas **router → service → model**, elegida por su *similitud* con el patrón MVC pero siguiendo la estructura estándar y las mejores prácticas de FastAPI (FastAPI no es un framework MVC).
+	- Modelos (capa de datos): ORM de SQLAlchemy + schemas/validaciones de Pydantic; encapsulan el acceso a la BD.
+	- Routers (frontera HTTP; equivalen al "Controlador" de MVC): declaran rutas con `APIRouter`, validan petición/respuesta con Pydantic, fijan status HTTP y header `Location`, y delegan la traducción de errores a RFC 7807 en los handlers de excepciones registrados.
+	- Services (capa de orquestación / lógica de negocio): median entre routers y modelos; reciben los schemas ya validados, llaman a modelos/`resolvers` y construyen el body de respuesta (conversión a MXN, campos derivados). No conocen HTTP.
 	- Vistas: Serán el chat de whatsapp controlado por el chatbot de n8n.
 ## Convenciones de nomenclaturas
 
@@ -17,10 +18,12 @@
 | Carpeta de modelos       | `snake_case`, plural                                | `models/`                                     |
 | Archivo de modelo        | `snake_case`, singular, sufijo `_model`             | `product_model.py`, `lead_model.py`           |
 | Clase de modelo          | `PascalCase`, singular, sufijo `Model`              | `ProductModel`, `LeadModel`                   |
-| Carpeta de controladores | `snake_case`, plural                                | `controllers/`                                |
-| Archivo de controlador   | `snake_case`, singular, sufijo `_controller`        | `product_controller.py`, `lead_controller.py` |
-| Clase de controlador     | `PascalCase`, singular, sufijo `Controller`         | `ProductController`, `LeadController`         |
-| Instancia de router      | `snake_case`, sufijo `_router`                      | `product_router`, `lead_router`               |
+| Carpeta de routers       | `snake_case`, plural                                | `routers/`                                    |
+| Archivo de router        | `snake_case`, plural (nombre del recurso)           | `productos.py`, `leads.py`                     |
+| Instancia de router      | `router` (una por módulo de recurso; se accede `productos.router`) | `router = APIRouter(prefix="/productos")` |
+| Carpeta de servicios     | `snake_case`, plural                                | `services/`                                   |
+| Archivo de servicio      | `snake_case`, singular, sufijo `_service`           | `producto_service.py`, `lead_service.py`       |
+| Funciones de servicio    | `snake_case` (PEP 8), verbo en inglés, a nivel de módulo (sin clase) | `search()`, `get_by_id()`, `create()` |
 ## Fases de Desarrollo
 1. Plan de levantamiento de entorno virtual e instalacion de librerias y dependencias.
 2. Plan de desarrollo de 2 Modelos con sus respectivas migraciones y seeders con Desarrollo de Modelos y migraciones uno por uno Ejecución de migraciones

@@ -1,9 +1,10 @@
 """Excepciones de dominio de la capa de datos.
 
-Los modelos NO conocen FastAPI ni HTTP. Cuando una resolución find-or-fail no encuentra
-un registro, lanzan estas excepciones llevando `field` y `value_received`; la futura capa
-de controladores las mapeará a respuestas RFC 7807 (`application/problem+json`) con
-`422 Unprocessable Entity` (`ResolutionError`) o `404 Not Found` (`NotFoundError`).
+Los modelos y services NO conocen FastAPI ni HTTP. Cuando una resolución find-or-fail no
+encuentra un registro, lanzan estas excepciones llevando `field` y `value_received`; los
+services las dejan propagar y los handlers de `core/error_handlers.py` las mapean a respuestas
+RFC 7807 (`application/problem+json`) con `422 Unprocessable Entity` (`ResolutionError`) o
+`404 Not Found` (`NotFoundError`).
 """
 
 

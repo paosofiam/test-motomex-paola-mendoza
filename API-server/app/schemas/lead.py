@@ -8,7 +8,7 @@ NO se acepta en bodies: es derivado de `ciudad → estados`.
 `nombre`, `ciudad` y `direccion_envio` son nullable en DB y por tanto opcionales en bodies.
 
 `PATCH` es parcial: todos los campos opcionales y `chat_whatsapp_id` ausente (inmutable tras crear).
-La service layer usará `payload.model_fields_set` para saber qué campos pasar a `LeadModel.update`.
+`lead_service.update` pasa solo los campos enviados vía `payload.model_dump(exclude_unset=True)` a `LeadModel.update`.
 
 `LeadResponse` incluye los campos derivados `chat_id` (chat activo, None si aún no tiene) y
 `estado` (None si `ciudad` es None), además de `intencion_de_compra` ya resuelto a string.

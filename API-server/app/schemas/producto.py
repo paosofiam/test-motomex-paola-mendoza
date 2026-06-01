@@ -2,7 +2,7 @@
 
 `ProductoCreate` refleja el body de `POST /productos` (`endpoints.md`): catálogos Tier 2 como
 strings (`marca`, `categorias`, `ciudades`) y vehículos como objetos, todos resueltos en la
-futura capa service. `marca`, `vehiculos` y `categorias` son find-or-create; `ciudades` es
+capa service (`producto_service.py`). `marca`, `vehiculos` y `categorias` son find-or-create; `ciudades` es
 find-or-fail (el payload no lleva estado y la BD exige `estado_id NOT NULL`). `moneda_id`
 es Tier 1 (viaja por id, default 1 = MXN).
 
