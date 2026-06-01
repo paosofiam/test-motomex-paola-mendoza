@@ -291,6 +291,40 @@ API-server/
 
 ---
 
+## Despliegue en producción (Docker)
+
+El backend está dockerizado para correr en cualquier servidor sin XAMPP. La imagen se construye a partir de los archivos `Dockerfile`, `docker-entrypoint.sh` y `.dockerignore` (el `docker-compose.yml` es **solo para pruebas locales** —levanta API + un MySQL de prueba juntos— y no se usa en el servidor).
+
+### Configuración: variables de entorno, nunca `.env`
+
+En producción la configuración **no** se lee de `.env` (ese archivo es solo local y está excluido de git y de la imagen por `.gitignore` y `.dockerignore`). Define estas variables como **variables de entorno en tu plataforma de despliegue**:
+
+| Variable | Obligatoria | Ejemplo |
+|----------|-------------|---------|
+| `DATABASE_URL` | Sí | `mysql+pymysql://USUARIO:CONTRASENA@HOST:3306/motomex` |
+| `APP_NAME` | No | `Motomex API` |
+
+> La nomenclatura completa de `DATABASE_URL` (qué es cada parte) está documentada como comentario al final de `.env`. Si la contraseña tiene caracteres especiales (`@ : / # ?`), URL-encodéalos.
+
+### Migraciones automáticas
+
+Al arrancar, el contenedor ejecuta `docker-entrypoint.sh`, que corre `alembic upgrade head` **antes** de levantar el servidor. No hay paso manual de migraciones en el servidor; basta con que la BD exista y sea accesible vía `DATABASE_URL`.
+
+### Despliegue en Hostinger con Coolify (alto nivel)
+
+[Coolify](https://coolify.io/) es un PaaS self-hosted (el mismo estilo del n8n que corre en el VPS). Pasos generales:
+
+1. **Base de datos:** crea un recurso **MySQL 8** en Coolify (collation `utf8mb4_unicode_ci`). Anota usuario, contraseña, host (el nombre interno del servicio) y el nombre de la BD (`motomex`).
+2. **Aplicación:** crea un recurso nuevo desde el **repositorio de GitHub**, apuntando al directorio `API-server/` y su `Dockerfile`. Coolify reconstruye la imagen en cada push.
+3. **Variables de entorno:** en la app, define `DATABASE_URL` (apuntando al MySQL del paso 1, puerto interno `3306`) y, opcionalmente, `APP_NAME`.
+4. **Puerto y dominio:** expón el puerto **8000**, asigna un dominio/subdominio y activa **HTTPS** (Coolify gestiona el certificado Let's Encrypt automáticamente).
+5. **Healthcheck:** la imagen ya expone `GET /health`; Coolify lo usa para saber si el contenedor está sano.
+6. **n8n:** con el HTTPS activo, configura en el bot de n8n la URL pública (`https://<tu-dominio>`) como base para consumir la API.
+
+> En el servidor, MySQL es un recurso **aparte** gestionado por Coolify; por eso allí no se usa el `docker-compose.yml` de este repo.
+
+---
+
 ## Sesiones siguientes
 
 Con XAMPP corriendo, desde `API-server/`:

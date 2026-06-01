@@ -1,0 +1,33 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: motomex
+    # La base de datos del proyecto debe usar esta collation.
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-root}"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      # Puerto 3308 en tu PC para no chocar con XAMPP (3306) ni la BD de tests (3307).
+      - "3308:3306"
+
+  api:
+    build: .
+    environment:
+      # El backend se conecta al MySQL de aquí arriba por el nombre "mysql".
+      DATABASE_URL: mysql+pymysql://root:${MYSQL_ROOT_PASSWORD:-root}@mysql:3306/motomex
+      APP_NAME: Motomex API
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+volumes:
+  mysql_data:
