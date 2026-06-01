@@ -15,10 +15,12 @@ import os
 from types import SimpleNamespace
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session
 
-from app.database import Base
+from app.database import Base, get_db
+from app.main import app as fastapi_app  # alias: `import app.models` re-vincularía el nombre `app`
 import app.models  # noqa: F401  registra las 18 tablas en Base.metadata
 from app.core.mixins import _now
 from app.models.ciudad_model import CiudadModel
@@ -64,6 +66,38 @@ def db():
     session.close()
     trans.rollback()
     conn.close()
+
+
+def _client(db, *, raise_server_exceptions=True):
+    """`TestClient` sobre la misma sesión `db` del test (override de `get_db`).
+
+    El endpoint comparte la transacción+savepoint del test, así que lo que escribe vía HTTP es
+    visible en `db` para las aserciones y se revierte al final (sin tocar la BD real). El override
+    devuelve la sesión directamente: NO ejecuta el `commit()/close()` de `get_db`, porque el
+    aislamiento ya lo gestiona la fixture `db`.
+    """
+    fastapi_app.dependency_overrides[get_db] = lambda: db
+    return TestClient(fastapi_app, raise_server_exceptions=raise_server_exceptions)
+
+
+@pytest.fixture
+def client(db):
+    """`TestClient` que RE-LANZA excepciones no controladas (default): un 500 inesperado falla el test."""
+    with _client(db) as c:
+        yield c
+    fastapi_app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client_no_raise(db):
+    """`TestClient` que NO re-lanza: devuelve la respuesta 500 real (RFC 7807) que vería el cliente.
+
+    Necesario para observar el comportamiento de producción cuando una excepción no controlada
+    (p. ej. `IntegrityError` de una FK no validada en el service) llega al handler genérico.
+    """
+    with _client(db, raise_server_exceptions=False) as c:
+        yield c
+    fastapi_app.dependency_overrides.clear()
 
 
 @pytest.fixture
