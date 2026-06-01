@@ -31,9 +31,13 @@ def _problem(
     title: str,
     detail: str,
     instance: str | None = None,
+    headers: dict[str, str] | None = None,
     **extra: Any,
 ) -> JSONResponse:
-    """Construye un body RFC 7807. Los `extra` no nulos (ej. `field`) se anexan al body."""
+    """Construye un body RFC 7807. Los `extra` no nulos (ej. `field`) se anexan al body.
+
+    `headers` propaga cabeceras de la excepción original (ej. `Allow` en un 405) a la respuesta.
+    """
     body: dict[str, Any] = {
         "type": f"{_ERROR_TYPE_BASE}{title.lower().replace(' ', '-')}",
         "title": title,
@@ -43,7 +47,9 @@ def _problem(
     if instance is not None:
         body["instance"] = instance
     body.update({k: v for k, v in extra.items() if v is not None})
-    return JSONResponse(status_code=status_code, content=jsonable_encoder(body), media_type=PROBLEM_JSON)
+    return JSONResponse(
+        status_code=status_code, content=jsonable_encoder(body), media_type=PROBLEM_JSON, headers=headers
+    )
 
 
 def register_error_handlers(app: FastAPI) -> None:
@@ -85,6 +91,7 @@ def register_error_handlers(app: FastAPI) -> None:
             "HTTP error",
             detail,
             instance=request.url.path,
+            headers=getattr(exc, "headers", None),
         )
 
     @app.exception_handler(Exception)

@@ -79,3 +79,28 @@ def test_search_filters_by_chat_whatsapp_id(db, seed_catalogs):
     lead_service.create(db, _create(chat_whatsapp_id="wa-B", telefono="+5213300000000"))
     res = lead_service.search(db, chat_whatsapp_id="wa-A")
     assert [l.id for l in res] == [a.id]
+
+
+def test_create_populates_relations_under_production_autoflush(db, seed_catalogs):
+    """Candado de regresión del bug de 'valores vacíos'.
+
+    Producción usa SessionLocal(autoflush=False); sin el db.flush() explícito de LeadModel.create,
+    la carga selectin de leads_productos/leads_vehiculos leería las tablas de relación aún vacías y la
+    respuesta saldría con listas vacías. El conftest usa autoflush=True (default), que enmascara el
+    bug, así que aquí lo suspendemos puntualmente con db.no_autoflush para reproducir producción.
+    """
+    from app.models.producto_model import ProductoModel
+
+    # El producto se siembra FUERA del bloque no_autoflush para que find_productos_by_modelo_or_fail
+    # lo encuentre; lo que se prueba es el create del lead, no el seeding.
+    ProductoModel.create(db, marca="Bosch", modelo="Filtro Z", precio=100)
+    payload = _create(
+        productos_interes=["Filtro Z"],
+        vehiculo=[{"modelo": "Versa", "marca": "Nissan", "anio": 2015}],
+    )
+    with db.no_autoflush:
+        resp = lead_service.create(db, payload)
+
+    assert resp.productos_interes == ["Filtro Z"]   # no vacío: el fix las persistió antes del refresh
+    assert len(resp.vehiculo) == 1
+    assert resp.vehiculo[0].modelo == "versa"

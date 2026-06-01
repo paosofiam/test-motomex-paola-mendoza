@@ -19,13 +19,18 @@ from app.schemas.producto import ProductoCreate, ProductoResponse
 
 
 def _to_response(producto: ProductoModel) -> ProductoResponse:
-    """Convierte la instancia ORM al DTO de respuesta, con precio convertido a MXN centavos."""
+    """Convierte la instancia ORM al DTO de respuesta, con precio convertido a MXN centavos.
+
+    `moneda` SIEMPRE es "MXN": como `precio` se entrega convertido a pesos
+    (`round(precio * tipo_de_cambio / 100)`), devolver la abreviación original (USD/EUR) junto a un
+    precio ya en MXN confundiría al consumidor LLM. La moneda original vive en `producto.moneda_id`.
+    """
     return ProductoResponse(
         id=producto.id,
         marca=producto.marca.marca,
         modelo=producto.modelo,
         precio=round(producto.precio * producto.moneda.tipo_de_cambio / 100),
-        moneda=producto.moneda.abreviacion,
+        moneda="MXN",
         stock=producto.stock,
         especificaciones=producto.especificaciones,
     )

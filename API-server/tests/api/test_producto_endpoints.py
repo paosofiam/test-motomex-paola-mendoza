@@ -38,7 +38,7 @@ def test_post_converts_usd_price_to_mxn(client, seed_catalogs):
     assert r.status_code == 201
     body = r.json()
     assert body["precio"] == round(12999 * 1700 / 100) == 220983
-    assert body["moneda"] == "USD"
+    assert body["moneda"] == "MXN"  # precio ya convertido a MXN ⇒ la etiqueta también es MXN
 
 
 def test_post_converts_eur_price_to_mxn(client, seed_catalogs):
@@ -143,4 +143,8 @@ def test_delete_is_soft_and_idempotent_404(client, seed_catalogs, db):
 def test_patch_producto_not_allowed(client, seed_catalogs):
     pid = client.post("/productos", json=_payload()).json()["id"]
     # ProductoModel no tiene update → no hay ruta PATCH.
-    assert client.patch(f"/productos/{pid}", json={"stock": 9}).status_code in (404, 405)
+    r = client.patch(f"/productos/{pid}", json={"stock": 9})
+    assert r.status_code in (404, 405)
+    # En un 405 (la ruta existe con otros métodos) se propaga el header Allow de Starlette.
+    if r.status_code == 405:
+        assert "GET" in r.headers.get("allow", "")

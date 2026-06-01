@@ -122,6 +122,9 @@ class LeadModel(TimestampMixin, Base):
         cls._sync_productos_interes(db, lead.id, productos_interes, ts)
         cls._sync_vehiculos(db, lead.id, vehiculo, ts)
 
+        db.flush()  # persiste las filas de relación antes del refresh (igual que en update);
+        # sin esto, con autoflush=False, la carga selectin de leads_productos/leads_vehiculos
+        # leería las tablas de relación aún vacías y la respuesta saldría con listas vacías.
         db.refresh(lead)
         return lead
 

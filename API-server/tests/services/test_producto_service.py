@@ -33,7 +33,7 @@ def test_create_converts_usd_price_to_mxn(db, seed_catalogs):
     resp = producto_service.create(db, _payload(marca="Bosch", modelo="Bateria", precio=12999, moneda_id=2))
     assert resp.precio == round(12999 * 1700 / 100) == 220983
     assert isinstance(resp.precio, int)
-    assert resp.moneda == "USD"
+    assert resp.moneda == "MXN"  # precio ya convertido a MXN ⇒ la etiqueta también es MXN
 
 
 def test_get_by_id_unknown_raises_not_found(db, seed_catalogs):
