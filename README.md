@@ -35,9 +35,9 @@ Stack: MySQL + FastAPI + SQLAlchemy/Pydantic, consumido por un chatbot de n8n so
 
 ## Puesta en marcha de la base de datos (paso a paso)
 
-> **Para quién es esta guía:** alguien que **nunca ha tocado este proyecto, ni Python, ni el framework**. Sigue los pasos en orden, de arriba hacia abajo, copiando y pegando cada comando tal cual. No necesitas entender el código: solo ejecutar.
+> **Para quién es esta guía:** alguien que **nunca ha tocado este proyecto, ni Python, ni el framework**. Sigue los pasos en orden, de arriba hacia abajo, copiando y pegando cada comando tal cual.
 >
-> Todos los comandos son para **PowerShell en Windows** (la terminal azul que viene con Windows; búscala en el menú Inicio como "PowerShell").
+> Todos los comandos son para **PowerShell en Windows**.
 
 Al terminar tendrás una base de datos llamada `motomex` con todas sus tablas creadas y llenas de datos de ejemplo, lista para que la API la consulte.
 
@@ -162,13 +162,23 @@ Qué esperar:
 
 ### Paso 4 — Llenar las tablas con datos (seeders)
 
-Los **seeders** insertan los datos: primero los catálogos obligatorios (monedas, estados de chat, etc.) y luego datos de ejemplo (productos, clientes, una pre-orden). Es **un solo comando** y es seguro repetirlo (no duplica datos):
+Los **seeders** insertan los datos. Es seguro repetir cualquiera de ellos (no duplica datos). Tienes **dos opciones**:
 
 ```powershell
+# Opción A — TODO: catálogos obligatorios + datos de ejemplo
+# (productos, clientes, una pre-orden). Recomendada para probar en local.
 python -m seeders.run_all
+
+# Opción B — SOLO los catálogos constantes del sistema
+# (monedas, intenciones_de_compra_de_leads, chat_statuses), sin datos de ejemplo.
+# Es el mismo seeder que se ejecuta en el entorno de producción.
+python -m seeders.seed_catalogs
 ```
 
-Qué esperar: una lista de las 18 tablas, cada una marcada con `OK` y su número de filas, y al final:
+Para montar el entorno local con datos de prueba, usa la **Opción A**. La **Opción B** deja solo los
+catálogos mínimos (las tablas que el backend necesita sí o sí), igual que en producción.
+
+Qué esperar con la **Opción A**: una lista de las 18 tablas, cada una marcada con `OK` y su número de filas, y al final:
 
 ```
 Todas las 18 tablas pobladas correctamente.

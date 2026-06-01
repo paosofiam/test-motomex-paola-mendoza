@@ -1,0 +1,7 @@
+# Normalizacion de fines de linea.
+# Evita que core.autocrlf de Windows rompa los scripts que se ejecutan dentro
+# del contenedor Linux. Sin esto, un clon/checkout en Windows puede dejar
+# docker-entrypoint.sh en CRLF y el contenedor falla al arrancar con:
+#   exec ./docker-entrypoint.sh: no such file or directory
+*.sh                 text eol=lf
+docker-entrypoint.sh text eol=lf

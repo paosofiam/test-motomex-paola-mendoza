@@ -35,3 +35,6 @@ htmlcov/
 
 # Claude Code (config local)
 .claude/settings.local.json
+
+# Manuales internos (no forman parte del repo)
+manuals/
