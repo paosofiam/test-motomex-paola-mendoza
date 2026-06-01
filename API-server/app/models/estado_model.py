@@ -1,4 +1,11 @@
-"""Catálogo Tier 1: estados. Sin métodos (pendiente). Sin delete (catálogo)."""
+"""Catálogo Tier 1: estados — COMPLETO. Sin métodos por diseño.
+
+No figura en la matriz de CLAUDE.md (cero métodos permitidos). Sin endpoint GET /estados
+(Tier 1 estático; el LLM conoce los 32 estados mexicanos vía system prompt).
+El campo `leads.estado` en respuestas se deriva vía acceso de atributo: `lead.ciudad.estado.estado`;
+funciona porque CiudadModel.estado es relationship(lazy="joined") — sin queries extra.
+Sin delete (catálogo; crece solo por seeder).
+"""
 
 from sqlalchemy import String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column

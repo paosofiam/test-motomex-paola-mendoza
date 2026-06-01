@@ -1,35 +1,32 @@
 ## Stack de Backend API
+
 - Motor de Base de datos: MySQL (visible desde phpmyadmin y MySQL)
 - Framework de backend: FastAPI
-- Arquitectura: capas **router → service → model**, elegida por su *similitud* con el patrón MVC pero siguiendo la estructura estándar y las mejores prácticas de FastAPI (FastAPI no es un framework MVC).
-	- Modelos (capa de datos): ORM de SQLAlchemy + schemas/validaciones de Pydantic; encapsulan el acceso a la BD.
-	- Routers (frontera HTTP; equivalen al "Controlador" de MVC): declaran rutas con `APIRouter`, validan petición/respuesta con Pydantic, fijan status HTTP y header `Location`, y delegan la traducción de errores a RFC 7807 en los handlers de excepciones registrados.
-	- Services (capa de orquestación / lógica de negocio): median entre routers y modelos; reciben los schemas ya validados, llaman a modelos/`resolvers` y construyen el body de respuesta (conversión a MXN, campos derivados). No conocen HTTP.
-	- Vistas: Serán el chat de whatsapp controlado por el chatbot de n8n.
+- Arquitectura: capas **router → service → model**, elegida por su _similitud_ con el patrón MVC pero siguiendo la estructura estándar y las mejores prácticas de FastAPI (FastAPI no es un framework MVC).
+  - Modelos (capa de datos): ORM de SQLAlchemy + schemas/validaciones de Pydantic; encapsulan el acceso a la BD.
+  - Routers (frontera HTTP; equivalen al "Controlador" de MVC): declaran rutas con `APIRouter`, validan petición/respuesta con Pydantic, fijan status HTTP y header `Location`, y delegan la traducción de errores a RFC 7807 en los handlers de excepciones registrados.
+  - Services (capa de orquestación / lógica de negocio): median entre routers y modelos; reciben los schemas ya validados, llaman a modelos/`resolvers` y construyen el body de respuesta (conversión a MXN, campos derivados). No conocen HTTP ni importan nada de FastAPI.
+  - Vistas: Serán el chat de whatsapp controlado por el chatbot de n8n.
+
 ## Convenciones de nomenclaturas
 
-| Elemento                 | Convención                                          | Ejemplo                                       |
-| ------------------------ | --------------------------------------------------- | --------------------------------------------- |
-| Tablas DB                | `snake_case`, plural, español sin acentos           | `productos`, `leads`, `pre_ordenes`           |
-| Columnas DB              | `snake_case`; dominio en español, técnico en inglés | `marca`, `precio`, `created_at`               |
-| Clases (general)         | `PascalCase`, singular                              | `Producto`, `Lead`, `Chat`                    |
-| Funciones y métodos      | `snake_case` (PEP 8); verbo en inglés               | `get_all()`, `get_by_id()`, `create()`        |
-| Variables y propiedades  | `snake_case` (PEP 8)                                | `user_id`, `total_amount`, `is_active`        |
-| Carpeta de modelos       | `snake_case`, plural                                | `models/`                                     |
-| Archivo de modelo        | `snake_case`, singular, sufijo `_model`             | `product_model.py`, `lead_model.py`           |
-| Clase de modelo          | `PascalCase`, singular, sufijo `Model`              | `ProductModel`, `LeadModel`                   |
-| Carpeta de routers       | `snake_case`, plural                                | `routers/`                                    |
-| Archivo de router        | `snake_case`, plural (nombre del recurso)           | `productos.py`, `leads.py`                     |
-| Instancia de router      | `router` (una por módulo de recurso; se accede `productos.router`) | `router = APIRouter(prefix="/productos")` |
-| Carpeta de servicios     | `snake_case`, plural                                | `services/`                                   |
-| Archivo de servicio      | `snake_case`, singular, sufijo `_service`           | `producto_service.py`, `lead_service.py`       |
-| Funciones de servicio    | `snake_case` (PEP 8), verbo en inglés, a nivel de módulo (sin clase) | `search()`, `get_by_id()`, `create()` |
-## Fases de Desarrollo
-1. Plan de levantamiento de entorno virtual e instalacion de librerias y dependencias.
-2. Plan de desarrollo de 2 Modelos con sus respectivas migraciones y seeders con Desarrollo de Modelos y migraciones uno por uno Ejecución de migraciones
-3. Plan de desarrollo de 2 controladores con endpoints/routers con Desarrollo de Controladores uno por uno
-4. Plan de dockerización del proyecto
-5. Despliegue en producción
+| Elemento                | Convención                                                           | Ejemplo                                   |
+| ----------------------- | -------------------------------------------------------------------- | ----------------------------------------- |
+| Tablas DB               | `snake_case`, plural, español sin acentos                            | `productos`, `leads`, `pre_ordenes`       |
+| Columnas DB             | `snake_case`; dominio en español, técnico en inglés                  | `marca`, `precio`, `created_at`           |
+| Clases (general)        | `PascalCase`, singular                                               | `Producto`, `Lead`, `Chat`                |
+| Funciones y métodos     | `snake_case` (PEP 8); verbo en inglés                                | `get_all()`, `get_by_id()`, `create()`    |
+| Variables y propiedades | `snake_case` (PEP 8)                                                 | `user_id`, `total_amount`, `is_active`    |
+| Carpeta de modelos      | `snake_case`, plural                                                 | `models/`                                 |
+| Archivo de modelo       | `snake_case`, singular, sufijo `_model`                              | `product_model.py`, `lead_model.py`       |
+| Clase de modelo         | `PascalCase`, singular, sufijo `Model`                               | `ProductModel`, `LeadModel`               |
+| Carpeta de routers      | `snake_case`, plural                                                 | `routers/`                                |
+| Archivo de router       | `snake_case`, plural (nombre del recurso)                            | `productos.py`, `leads.py`                |
+| Instancia de router     | `router` (una por módulo de recurso; se accede `productos.router`)   | `router = APIRouter(prefix="/productos")` |
+| Carpeta de servicios    | `snake_case`, plural                                                 | `services/`                               |
+| Archivo de servicio     | `snake_case`, singular, sufijo `_service`                            | `producto_service.py`, `lead_service.py`  |
+| Funciones de servicio   | `snake_case` (PEP 8), verbo en inglés, a nivel de módulo (sin clase) | `search()`, `get_by_id()`, `create()`     |
+
 ## Base de datos
 
 > Para la especificación estructural completa (tablas, columnas, tipos, FKs, columnas estándar, valores por defecto, seeders y diagrama entidad-relación), véase [`er_diagram.md`](./er_diagram.md). Esta sección documenta únicamente los **por qués** de las decisiones de lógica de negocio que afectan al modelo de datos.
@@ -46,27 +43,30 @@
 - **`pre_ordenes_productos.cantidad`**: la tabla incluye una columna `cantidad: int not_null` además de las dos FKs porque una pre-orden puede pedir N unidades del mismo producto; consolidar en una sola fila por `(pre_orden, producto)` es más limpio que insertar N filas duplicadas y permite calcular el total con una sola operación por producto.
 
 ## Modelos
+
 La presente sección detalla los modelos del proyecto con sus métodos permitidos.
 
-| Modelo                         | Métodos                                                             |
-| ------------------------------ | ------------------------------------------------------------------- |
-| `ProductoModel`                | `get_all`, `get_by_id`, `search`, `create`, `delete`                |
-| `LeadModel`                    | `get_by_id`, `create`, `update`                                     |
+| Modelo                         | Métodos                                                                             |
+| ------------------------------ | ----------------------------------------------------------------------------------- |
+| `ProductoModel`                | `get_all`, `get_by_id`, `search`, `create`, `delete`                                |
+| `LeadModel`                    | `get_by_id`, `create`, `update`                                                     |
 | `ChatModel`                    | `get_by_id`, `get_by_chat_whatsapp_id`, `get_by_lead`, `create`, `update`, `delete` |
-| `VehiculoModel`                | `get_all`, `get_by_id`, `create`                                    |
-| `MarcaModel`                   | `get_all`, `get_by_id`, `create`                                    |
-| `MonedaModel`                  | `get_all`, `get_by_id`, `create`                                    |
-| `CiudadModel`                  | `get_all`, `get_by_id`, `create`                                    |
-| `IntencionDeCompraDeLeadModel` | `get_all`, `get_by_id`, `create`                                    |
-| `CategoriaModel`               | `get_all`, `get_by_id`, `create`                                    |
-| `ChatStatusModel`              | `get_all`, `get_by_id`                                              |
-| `PreOrdenModel`                | `create`                                                            |
+| `VehiculoModel`                | `get_all`, `get_by_id`, `create`                                                    |
+| `MarcaModel`                   | `get_all`, `get_by_id`, `create`                                                    |
+| `MonedaModel`                  | `get_all`, `get_by_id`, `create`                                                    |
+| `CiudadModel`                  | `get_all`, `get_by_id`, `create`                                                    |
+| `IntencionDeCompraDeLeadModel` | `get_all`, `get_by_id`, `create`                                                    |
+| `CategoriaModel`               | `get_all`, `get_by_id`, `create`                                                    |
+| `ChatStatusModel`              | `get_all`, `get_by_id`                                                              |
+| `PreOrdenModel`                | `create`                                                                            |
 
 **Notas**:
+
 - Todos los métodos add/create deben guardar el mismo timestamp correspondiente en las columnas "created_at" y "updated_at" del elemento.
 - Todos los métodos edit/update deben asegurar guardar el timestamp correspondiente en la columna "updated_at" del elemento a editar.
 - Todos los métodos delete deben hacer soft delete en la base de datos guardando el timestamp correspondiente en la columna "deleted_at" del elemento o fila a eliminar de la tabla, **NUNCA** hard delete que destruya por completo el elemento. Un elemento se considera activo cuando `deleted_at IS NULL`.
 - Los métodos `get_by_chat_whatsapp_id` y `get_by_lead` de `ChatModel` deben ordenar por `created_at DESC` y limitar la respuesta a **un único registro** (el chat más reciente), en cumplimiento de la regla de negocio de un solo chat activo por lead.
+
 ## Endpoints del proyecto
 
 > Para la especificación técnica completa de endpoints (tipos abreviados, tabla de endpoints, formato de respuestas REST, formato de errores RFC 7807, política Tier 1/2/3 y política find-or-create/find-or-fail), véase [`endpoints.md`](./endpoints.md). Esta sección documenta únicamente los **por qués** de las decisiones de diseño de lógica de negocio detrás de esos endpoints.
@@ -80,6 +80,7 @@ La presente sección detalla los modelos del proyecto con sus métodos permitido
 - **`leads.estado` derivado, no almacenado**: el campo `estado` aparece en respuestas de `/leads` pero no se acepta en bodies porque se deriva transitivamente vía `leads.ciudad → ciudades.estado → estados.estado`. Aceptarlo permitiría un par `(ciudad, estado)` inconsistente; derivarlo siempre garantiza una única fuente de verdad y respeta la normalización 3NF.
 
 ## Posibles Mejoras
+
 1. **Método `update` en `ProductoModel`**: actualmente el modelo solo permite crear y borrar productos. Agregar `update` permitiría modificar precio, stock o especificaciones sin recrear el registro (y sin perder el `id` ni el historial de relaciones).
 2. **Validación estricta de `telefono`**: además de la longitud E.164 ya documentada, definir regex de validación y normalización al ingresar (ej. eliminar espacios, garantizar prefijo `+`, rechazar caracteres no numéricos).
 3. **Auth/Authz, paginación, rate limiting y formato estándar de respuestas de error**: capas transversales no contempladas en el contrato inicial. Especificar cuando el sistema deje el entorno controlado del chatbot interno.

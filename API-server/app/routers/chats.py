@@ -1,21 +1,20 @@
 """Router del recurso chats: frontera HTTP (sin lógica de negocio).
 
 Declara rutas, valida petición/respuesta con Pydantic, fija status HTTP y header `Location`,
-y documenta errores RFC 7807. La lógica vive en la capa service, aún pendiente. Responden 501.
+y documenta errores RFC 7807. La lógica de negocio vive en `services/chat_service.py`.
 """
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas.chat import ChatCreate, ChatResponse, ChatUpdate
 from app.schemas.common import ProblemDetail
+from app.services import chat_service
 
 router = APIRouter(prefix="/chats", tags=["chats"])
-
-_PENDING = "Ruta declarada (stub); pendiente de implementación"
 
 
 @router.post(
@@ -28,13 +27,13 @@ def create_chat(
     payload: ChatCreate, response: Response, db: Session = Depends(get_db)
 ) -> Any:
     """Crea un chat. Soft-delete del chat activo previo obligatorio. Devuelve 201 + Location."""
-    # SEAM (pendiente):
-    #   chat = chat_service.create(db, payload)
-    #   response.headers["Location"] = f"/chats/{chat.id}"
-    #   return chat
-    # SERVICE: soft-delete del chat activo del lead antes de crear el nuevo (un chat por lead).
-    # SERVICE: status=chat.chat_status.status en ChatResponse (Tier 1).
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)
+    # SERVICE (pendiente en services/chat_service.py):
+    #   - Validar que lead_id existe (→ NotFoundError → 404)
+    #   - Soft-delete del chat activo previo del mismo lead (invariante: un chat activo por lead)
+    #   - Verificar chat_status_id (Tier 1: id → string en respuesta vía join con chat_statuses)
+    chat = chat_service.create(db, payload)
+    response.headers["Location"] = f"/chats/{chat.id}"
+    return chat
 
 
 @router.get(
@@ -43,12 +42,13 @@ def create_chat(
     responses={404: {"model": ProblemDetail}},
 )
 def read_chat_by_whatsapp_id(
-    chat_whatsapp_id: str | None = None, db: Session = Depends(get_db)
+    chat_whatsapp_id: str, db: Session = Depends(get_db)
 ) -> Any:
-    """Devuelve el chat más reciente por `chat_whatsapp_id` (ORDER BY created_at DESC LIMIT 1)."""
-    # SEAM (pendiente): return chat_service.get_by_chat_whatsapp_id(db, chat_whatsapp_id)
-    # SERVICE: status=chat.chat_status.status en ChatResponse (Tier 1).
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)
+    """Devuelve el chat activo más reciente por `chat_whatsapp_id`. 404 si no existe."""
+    # SERVICE (pendiente en services/chat_service.py):
+    #   - Buscar chat activo por chat_whatsapp_id (ORDER BY created_at DESC LIMIT 1, deleted_at IS NULL)
+    #   - NotFoundError → 404 si no existe ningún chat activo con ese chat_whatsapp_id
+    return chat_service.get_by_chat_whatsapp_id(db, chat_whatsapp_id)
 
 
 @router.get(
@@ -57,10 +57,10 @@ def read_chat_by_whatsapp_id(
     responses={404: {"model": ProblemDetail}},
 )
 def read_chat(chat_id: int, db: Session = Depends(get_db)) -> Any:
-    """Devuelve un chat activo por id, o 404 si no existe / está soft-deleted."""
-    # SEAM (pendiente): return chat_service.get_by_id(db, chat_id)  # NotFoundError -> 404
-    # SERVICE: status=chat.chat_status.status en ChatResponse (Tier 1).
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)
+    """Devuelve un chat activo por id. 404 si no existe o está soft-deleted."""
+    # SERVICE (pendiente en services/chat_service.py):
+    #   - ChatModel.get_by_id → NotFoundError → 404 si no existe o deleted_at IS NOT NULL
+    return chat_service.get_by_id(db, chat_id)
 
 
 @router.patch(
@@ -72,10 +72,11 @@ def update_chat(
     chat_id: int, payload: ChatUpdate, db: Session = Depends(get_db)
 ) -> Any:
     """Actualización parcial de un chat (solo `chat_status_id` y `resumen`). Devuelve el chat completo."""
-    # SEAM (pendiente): return chat_service.update(db, chat_id, payload)
-    # SERVICE: payload.model_fields_set para distinguir campos enviados de no enviados.
-    # SERVICE: status=chat.chat_status.status en ChatResponse (Tier 1).
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)
+    # SERVICE (pendiente en services/chat_service.py):
+    #   - Solo actualiza chat_status_id y resumen; lead_id y chat_whatsapp_id son inmutables
+    #   - Usar payload.model_dump(exclude_unset=True) para PATCH parcial (distinción campo enviado vs. ausente)
+    #   - NotFoundError → 404 si chat_id no existe o está soft-deleted
+    return chat_service.update(db, chat_id, payload)
 
 
 @router.delete(
@@ -84,6 +85,8 @@ def update_chat(
     responses={404: {"model": ProblemDetail}},
 )
 def delete_chat(chat_id: int, db: Session = Depends(get_db)) -> None:
-    """Soft-delete de un chat. 204 sin body; 404 si no existe / ya está soft-deleted."""
-    # SEAM (pendiente): chat_service.delete(db, chat_id)  # NotFoundError -> 404
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, _PENDING)
+    """Soft-delete de un chat. 204 sin body. 404 si no existe o ya está soft-deleted."""
+    # SERVICE (pendiente en services/chat_service.py):
+    #   - Soft-delete: set deleted_at = now(). Hard-delete prohibido.
+    #   - NotFoundError → 404 si chat_id no existe o ya está soft-deleted
+    chat_service.delete(db, chat_id)
