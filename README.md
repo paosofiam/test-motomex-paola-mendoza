@@ -27,9 +27,9 @@ Construir una solución de automatización e IA que permita:
 
 Las especificaciones del proyecto están divididas en tres documentos complementarios:
 
-- [`contracts.md`](./contracts.md) — stack, convenciones de nomenclatura, fases de desarrollo, modelos y las **decisiones de lógica de negocio** detrás de la base de datos y los endpoints.
-- [`er_diagram.md`](./er_diagram.md) — diagrama entidad-relación en Mermaid, tablas, columnas, FKs, columnas estándar, valores por defecto y seeders.
-- [`endpoints.md`](./endpoints.md) — tabla de endpoints REST, tipos de recursos, formato de respuestas y errores (RFC 7807), política Tier 1/2/3 de catálogos y política find-or-create/find-or-fail.
+- [`contracts.md`](./API-server/specs/contracts.md) — stack, convenciones de nomenclatura, fases de desarrollo, modelos y las **decisiones de lógica de negocio** detrás de la base de datos y los endpoints.
+- [`er_diagram.md`](./API-server/specs/er_diagram.md) — diagrama entidad-relación en Mermaid, tablas, columnas, FKs, columnas estándar, valores por defecto y seeders.
+- [`endpoints.md`](./API-server/specs/endpoints.md) — tabla de endpoints REST, tipos de recursos, formato de respuestas y errores (RFC 7807), política Tier 1/2/3 de catálogos y política find-or-create/find-or-fail.
 
 Stack: MySQL + FastAPI + SQLAlchemy/Pydantic, consumido por un chatbot de n8n sobre WhatsApp.
 

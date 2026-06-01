@@ -1,19 +1,28 @@
 # Motomex API
 
-Backend API en FastAPI para el chatbot de WhatsApp de Motomex. Consume MySQL local vía XAMPP.
+Backend REST en **FastAPI** para el chatbot de WhatsApp de Motomex. El consumidor principal es un agente LLM (n8n), por lo que las decisiones de diseño priorizan minimizar tokens y roundtrips.
+
+- Base de datos: MySQL (XAMPP local, misma instancia que phpMyAdmin)
+- Arquitectura de capas: **router → service → model**
+- Documentación interactiva: `/docs` (Swagger UI) y `/redoc`
+
+---
 
 ## Requisitos previos
 
 - **Python 3.14** instalado y disponible vía `py -3.14` (Windows Python Launcher).
-- **XAMPP** corriendo con **MySQL** y **Apache** activos desde el panel de control (necesario para que phpMyAdmin y el API vean la misma base de datos).
-- (Opcional) phpMyAdmin abierto en http://localhost/phpmyadmin para inspeccionar la BD.
+- **XAMPP** corriendo con **MySQL** y **Apache** activos.
+- Base de datos `motomex` creada manualmente en phpMyAdmin con collation `utf8mb4_unicode_ci`.
+- (Opcional) phpMyAdmin en `http://localhost/phpmyadmin` para inspeccionar la BD.
 
-## Levantar el entorno por primera vez
+---
 
-Desde la raíz del proyecto (`API-server/`), en PowerShell:
+## Configuración inicial (primera vez)
+
+Desde `API-server/` en PowerShell:
 
 ```powershell
-# 1. Crear el entorno virtual
+# 1. Crear entorno virtual
 py -3.14 -m venv .venv
 
 # 2. Activarlo
@@ -22,57 +31,271 @@ py -3.14 -m venv .venv
 # 3. Instalar dependencias
 pip install -r requirements.txt
 
-# 4. Copiar la plantilla de variables de entorno
+# 4. Crear archivo de variables de entorno
 Copy-Item .env.example .env
 ```
 
-Edita `.env` si tus credenciales de MySQL en XAMPP son distintas al default (`root` sin password en `localhost:3306`). El archivo `.env` está en `.gitignore` y no se versiona.
+Edita `.env` si tus credenciales de MySQL difieren del default (`root` sin contraseña en `localhost:3306`). El `.env` no se versiona.
 
-## Iniciar el servidor local
+### Migraciones y seed
 
-Con el venv activo:
+```powershell
+# Aplicar migraciones (crea/actualiza tablas)
+alembic upgrade head
+
+# Poblar catálogos estáticos (chat_statuses, intenciones_de_compra, etc.)
+python -m seeders.run_all
+```
+
+---
+
+## Iniciar el servidor
+
+Con el venv activo y **desde `API-server/`**:
 
 ```powershell
 uvicorn app.main:app --reload
 ```
 
-El servidor queda escuchando en http://localhost:8000. Endpoints disponibles:
+> **Importante:** el `.env` se carga con ruta relativa al directorio de trabajo. Correr `uvicorn` desde otro directorio hace que la app no encuentre el `.env` y falle con un error engañoso de credenciales MySQL.
 
-- http://localhost:8000/health → healthcheck (`{"status":"ok"}`).
-- http://localhost:8000/docs → Swagger UI interactivo.
-- http://localhost:8000/redoc → documentación ReDoc.
+El servidor queda disponible en:
 
-`--reload` reinicia el servidor automáticamente al guardar cambios en archivos `.py`.
+| URL | Descripción |
+|-----|-------------|
+| `http://localhost:8000/health` | Healthcheck → `{"status": "ok"}` |
+| `http://localhost:8000/docs` | Swagger UI interactivo |
+| `http://localhost:8000/redoc` | Documentación ReDoc |
 
-## Sesiones siguientes
+---
 
-Solo es necesario activar el venv e iniciar el servidor:
+## Ejecutar los tests
+
+Los tests requieren una base de datos separada `motomex_test`. Créala en phpMyAdmin antes de correr los tests.
 
 ```powershell
-.\.venv\Scripts\Activate.ps1
-uvicorn app.main:app --reload
+# Desde API-server/, con el venv activo
+$env:TEST_DATABASE_URL = "mysql+pymysql://root:@127.0.0.1:3307/motomex_test"
+pytest
 ```
+
+La suite usa MySQL real (no mocks). El `conftest.py` crea y destruye las tablas automáticamente en cada sesión.
+
+Para correr un subconjunto específico:
+
+```powershell
+pytest tests/models/          # solo tests de modelos
+pytest tests/api/             # solo tests de endpoints
+pytest tests/services/        # solo tests de servicios
+pytest -v                     # con output detallado
+```
+
+---
+
+## Endpoints
+
+### Productos
+
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| `GET` | `/productos` | Lista productos. Query params opcionales: `marca`, `precio_minimo` |
+| `POST` | `/productos` | Crea producto. Find-or-create para `marca`, `vehiculos`, `categorias` |
+| `GET` | `/productos/{id}` | Obtiene producto por id |
+| `DELETE` | `/productos/{id}` | Soft-delete de producto |
+
+**Body `POST /productos`:**
+```json
+{
+  "marca": "string",
+  "modelo": "string",
+  "precio": 12999,
+  "moneda_id": 1,
+  "stock": 10,
+  "especificaciones": { "campo": "valor" },
+  "vehiculos": [{ "modelo": "string", "marca": "string", "anio": 2020 }],
+  "categorias": ["string"],
+  "ciudades": ["string"]
+}
+```
+
+**Respuesta `Producto`:**
+```json
+{
+  "id": 1,
+  "marca": "string",
+  "modelo": "string",
+  "precio": 12999,
+  "moneda": "MXN",
+  "stock": 10,
+  "especificaciones": {}
+}
+```
+
+> `precio` se devuelve **siempre en MXN** (centavos), independientemente de la moneda de origen.
+
+---
+
+### Leads
+
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| `GET` | `/leads` | Lista leads. Query params: `chat_whatsapp_id`, `intencion_de_compra` |
+| `POST` | `/leads` | Crea lead |
+| `GET` | `/leads/{id}` | Obtiene lead por id |
+| `PATCH` | `/leads/{id}` | Actualiza lead (retorna recurso completo) |
+
+**Body `POST /leads`:**
+```json
+{
+  "chat_whatsapp_id": "string",
+  "nombre_whatsapp": "string",
+  "telefono": "+521234567890",
+  "nombre": "string",
+  "ciudad": "string",
+  "productos_interes": ["modelo_producto"],
+  "vehiculo": [{ "modelo": "string", "marca": "string", "anio": 2020 }],
+  "direccion_envio": "string",
+  "intencion_de_compra_id": 1
+}
+```
+
+> `estado` no se acepta en el body — se deriva automáticamente de `ciudad → ciudades.estado_id → estados.estado`.
+
+---
+
+### Chats
+
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| `GET` | `/chats` | Obtiene chat activo. Query param: `chat_whatsapp_id` |
+| `POST` | `/chats` | Crea chat (soft-delete del previo del mismo lead) |
+| `GET` | `/chats/{id}` | Obtiene chat por id |
+| `PATCH` | `/chats/{id}` | Actualiza `chat_status_id` y/o `resumen` |
+| `DELETE` | `/chats/{id}` | Soft-delete de chat |
+
+> Solo puede haber **un chat activo por lead**. Crear un nuevo chat soft-elimina el anterior automáticamente.
+
+---
+
+### Pre-órdenes
+
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| `POST` | `/pre_ordenes` | Crea pre-orden |
+
+**Body `POST /pre_ordenes`:**
+```json
+{
+  "lead_id": 1,
+  "total": 25998,
+  "productos": [{ "producto_id": 1, "cantidad": 2 }]
+}
+```
+
+> `total` se persiste en MXN ya convertido (centavos). `producto_id` debe ser el id exacto — no hay resolución por string en pre-órdenes.
+
+---
+
+## Formato de respuestas
+
+### Éxito
+
+El body devuelve el recurso directamente, sin wrapper. El status HTTP es la única señal de éxito.
+
+- `POST` → `201 Created` + header `Location: /<recurso>/{id}` + body con el recurso
+- `PATCH` → `200 OK` + body con el recurso completo actualizado
+- `DELETE` → `204 No Content` (sin body)
+
+### Error — RFC 7807 Problem Details
+
+Todos los errores `4xx`/`5xx` usan `Content-Type: application/problem+json`:
+
+```json
+{
+  "type": "https://api.example.com/errors/unprocessable-entity",
+  "title": "Validation failed",
+  "status": 422,
+  "detail": "El campo 'vehiculo[0].marca' no se pudo resolver",
+  "field": "vehiculo[0].marca",
+  "value_received": "Hiunday"
+}
+```
+
+---
+
+## Reglas de negocio clave
+
+### Dinero siempre en centavos enteros
+`precio`, `tipo_de_cambio` y `total` se almacenan como `int`. `12999` = $129.99. Nunca floats.
+
+### Política de catálogos (Tier 1/2/3)
+
+| Tier | Catálogos | Body petición | Body respuesta |
+|------|-----------|---------------|----------------|
+| **1** — pequeños/estáticos | `monedas`, `chat_statuses`, `intenciones_de_compra_de_leads`, `estados` | `*_id` (int) | string |
+| **2** — medianos/dinámicos | `marcas`, `categorias`, `ciudades`, `vehiculos` | string | string |
+| **3** — entidades dinámicas | `productos`, `leads`, `chats`, `pre_ordenes` | `id` (int) | objeto completo |
+
+### Find-or-create vs find-or-fail
+
+- **Find-or-create:** `marca` y `vehiculos` en `POST /productos`; `vehiculo` en `POST/PATCH /leads`. La captura conversacional puede crear entidades nuevas en cascada.
+- **Find-or-fail:** todo lo demás. Si el string no resuelve, devuelve `422` con el campo y el valor recibido.
+- `leads.productos_interes[]`: find-or-fail por `modelo`. Si el modelo coincide con varios productos, se persiste la relación con todos.
+
+### Soft delete
+Todo delete setea `deleted_at`; nunca hard-delete. Activo = `deleted_at IS NULL`. Los catálogos (`marcas`, `monedas`, `ciudades`, `estados`, `vehiculos`, `categorias`, `intenciones_de_compra_de_leads`, `chat_statuses`) no admiten delete de ningún tipo.
+
+---
 
 ## Estructura del proyecto
 
 ```
 API-server/
 ├── app/
-│   ├── main.py            # Instancia FastAPI y endpoints raíz
-│   ├── config.py          # Settings (carga .env vía pydantic-settings)
-│   ├── database.py        # engine SQLAlchemy, SessionLocal, Base, get_db()
-│   ├── models/            # Modelos SQLAlchemy (próxima fase)
-│   ├── controllers/       # Routers / controllers FastAPI (próxima fase)
-│   └── core/              # Utilidades transversales
-├── migrations/            # Migraciones Alembic (próxima fase)
-├── seeders/               # Scripts de seed (próxima fase)
-├── specs/                 # Contratos y diagrama ER del proyecto
-├── .env.example           # Plantilla de variables de entorno
+│   ├── main.py                # Instancia FastAPI, registro de routers y handlers
+│   ├── config.py              # Settings (pydantic-settings, carga .env)
+│   ├── database.py            # engine, SessionLocal, Base, get_db()
+│   ├── models/                # Modelos SQLAlchemy (una clase por archivo)
+│   ├── schemas/               # Schemas Pydantic de request/response
+│   ├── routers/               # Routers FastAPI (frontera HTTP)
+│   ├── services/              # Lógica de negocio (sin dependencias HTTP)
+│   └── core/
+│       ├── exceptions.py      # Excepciones de dominio
+│       ├── error_handlers.py  # Traducción de excepciones a RFC 7807
+│       ├── normalization.py   # Normalización Tier 2 (lowercase, trim, unaccent)
+│       ├── resolvers.py       # find-or-create / find-or-fail
+│       └── mixins.py          # Columnas estándar (created_at, updated_at, deleted_at)
+├── migrations/                # Migraciones Alembic
+├── seeders/                   # Scripts de seed para catálogos estáticos
+├── tests/
+│   ├── conftest.py            # Fixtures de BD de test y cliente HTTP
+│   ├── factories.py           # Factories de datos de test
+│   ├── models/                # Tests de modelos SQLAlchemy
+│   ├── services/              # Tests de services
+│   └── api/                   # Tests de endpoints (integración)
+├── specs/                     # Contratos y diagrama ER (fuente de verdad del diseño)
+├── .env.example               # Plantilla de variables de entorno
 ├── requirements.txt
-└── README.md
+└── requirements-dev.txt
 ```
 
-## Notas
+---
 
-- El API se conecta al **mismo MySQL** que usa phpMyAdmin de XAMPP, por lo que cualquier dato escrito desde el API es visible inmediatamente desde phpMyAdmin (y viceversa).
-- La base de datos `motomex` deberá crearse antes de ejecutar migraciones (próxima fase). Puedes crearla manualmente desde phpMyAdmin con collation `utf8mb4_unicode_ci`.
+## Variables de entorno
+
+| Variable | Default | Descripción |
+|----------|---------|-------------|
+| `DATABASE_URL` | `mysql+pymysql://root:@localhost:3306/motomex` | URL de conexión a MySQL |
+| `APP_NAME` | `Motomex API` | Nombre de la aplicación |
+| `TEST_DATABASE_URL` | — | URL de la BD de tests (solo para pytest) |
+
+---
+
+## Sesiones siguientes
+
+Con XAMPP corriendo, desde `API-server/`:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+uvicorn app.main:app --reload
+```

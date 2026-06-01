@@ -24,6 +24,7 @@ __pycache__/
 
 # Logs y temporales
 *.log
+*_out.txt
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
