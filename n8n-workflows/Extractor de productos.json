@@ -3,32 +3,137 @@
   "nodes": [
     {
       "parameters": {
+        "formTitle": "Extractor de productos Motomex",
+        "formDescription": "Pega el texto con los productos o sube un archivo de texto (.txt). La IA extraerá cada producto y lo dará de alta en el catálogo.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Texto",
+              "fieldType": "textarea",
+              "placeholder": "Pega aquí el texto con la información de los productos...",
+              "requiredField": false
+            },
+            {
+              "fieldLabel": "Archivo",
+              "fieldType": "file",
+              "acceptFileTypes": ".txt,.md,.csv",
+              "multipleFiles": false,
+              "requiredField": false
+            }
+          ]
+        },
         "options": {}
       },
       "type": "n8n-nodes-base.formTrigger",
-      "typeVersion": 2.5,
+      "typeVersion": 2.6,
       "position": [
         0,
         0
       ],
       "id": "2e854b27-2b59-47e3-b093-953f9fea0d12",
       "name": "On form submission",
-      "webhookId": "ee971abd-9e15-4f63-8b4b-d7a5129652c7"
+      "webhookId": "ee971abd-9e15-4f63-8b4b-d7a5129652c7",
+      "notes": "Dos campos: 'Texto' (textarea) y 'Archivo' (subida de .txt). El usuario puede usar cualquiera de los dos."
     },
     {
       "parameters": {
+        "operation": "text",
+        "binaryPropertyName": "Archivo",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        0
+      ],
+      "id": "c1d2e3f4-0000-4000-8000-000000000001",
+      "name": "Extraer texto del archivo",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "notes": "Extrae el texto del archivo subido (operation 'text'). binaryPropertyName debe coincidir con el nombre del campo de archivo del formulario ('Archivo'). Si solo se pega texto (sin archivo), no hay binario: onError continua y el texto se toma del textarea en el siguiente nodo."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a0000000-0000-4000-8000-000000000001",
+              "name": "texto",
+              "value": "={{ $('Extraer texto del archivo').item.json.text || $('On form submission').item.json.Texto }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        0
+      ],
+      "id": "c1d2e3f4-0000-4000-8000-000000000002",
+      "name": "Preparar texto fuente",
+      "notes": "Unifica la fuente: usa el texto extraído del archivo si existe; si no, el textarea del formulario."
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.texto }}",
         "schemaType": "manual",
-        "inputSchema": "[\n  {\n  \"marca\": \"string\",\n  \"modelo\": \"string\",\n  \"precio\": 1,\n  \"moneda_id\": 1,\n  \"stock\": 0,\n  \"especificaciones\": {\n    \"additionalProp1\": {}\n  },\n  \"vehiculos\": [\n    {\n      \"modelo\": \"string\",\n      \"marca\": \"string\",\n      \"anio\": 0\n    }\n  ],\n  \"categorias\": [\n    \"string\"\n  ],\n  \"ciudades\": [\n    \"string\"\n  ]\n}\n]",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"productos\": {\n      \"type\": \"array\",\n      \"description\": \"Todos los productos encontrados en el texto\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"marca\": { \"type\": \"string\", \"description\": \"Marca del producto\" },\n          \"modelo\": { \"type\": \"string\", \"description\": \"Modelo o nombre del producto\" },\n          \"precio\": { \"type\": \"integer\", \"description\": \"Precio en CENTAVOS de su moneda original (12999 = 129.99). Multiplica por 100 si el texto da el precio en unidades.\" },\n          \"moneda_id\": { \"type\": \"integer\", \"description\": \"1=MXN (Pesos), 2=USD (Dólares), 3=EUR (Euros). Usa 1 si no se especifica.\" },\n          \"stock\": { \"type\": \"integer\", \"description\": \"Existencias. 0 si no se especifica.\" },\n          \"especificaciones\": { \"type\": \"object\", \"description\": \"Pares clave-valor con caracteristicas tecnicas, p. ej. { \\\"voltaje\\\": \\\"12V\\\" }. Objeto vacio si no hay.\" },\n          \"vehiculos\": { \"type\": \"array\", \"description\": \"Vehiculos compatibles\", \"items\": { \"type\": \"object\", \"properties\": { \"modelo\": { \"type\": \"string\" }, \"marca\": { \"type\": \"string\" }, \"anio\": { \"type\": \"integer\" } } } },\n          \"categorias\": { \"type\": \"array\", \"items\": { \"type\": \"string\" }, \"description\": \"Categorias del producto\" },\n          \"ciudades\": { \"type\": \"array\", \"items\": { \"type\": \"string\" }, \"description\": \"Ciudades donde esta disponible\" }\n        },\n        \"required\": [\"marca\", \"modelo\", \"precio\"]\n      }\n    }\n  },\n  \"required\": [\"productos\"]\n}",
         "options": {}
       },
       "type": "@n8n/n8n-nodes-langchain.informationExtractor",
       "typeVersion": 1.2,
       "position": [
-        208,
+        680,
         0
       ],
       "id": "b33e514d-841f-4abc-a894-0e3d25b6a570",
-      "name": "Information Extractor"
+      "name": "Extraer productos",
+      "notes": "Extrae todos los productos del texto al esquema de POST /productos. Salida: { output: { productos: [ ... ] } }."
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5.1",
+          "mode": "list",
+          "cachedResultName": "gpt-5.1"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        680,
+        220
+      ],
+      "id": "c1d2e3f4-0000-4000-8000-000000000003",
+      "name": "Modelo de lenguaje",
+      "credentials": {
+        "openAiApi": {
+          "id": "5qdKwEbacAyy64JO",
+          "name": "OpenAI account"
+        }
+      },
+      "notes": "Crea/selecciona una credencial 'OpenAI API'. El secreto NO se guarda en este JSON."
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "output.productos",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        900,
+        0
+      ],
+      "id": "c1d2e3f4-0000-4000-8000-000000000004",
+      "name": "Separar productos",
+      "notes": "Divide el arreglo output.productos en un item por producto (transformación, no es un nodo de bucle). El nodo HTTP siguiente se ejecuta una vez por item de forma nativa."
     },
     {
       "parameters": {
@@ -36,17 +141,18 @@
         "url": "https://api-test-motomex.paosofiam.com/productos",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"marca\": \"string\",\n  \"modelo\": \"string\",\n  \"precio\": 1,\n  \"moneda_id\": 1,\n  \"stock\": 0,\n  \"especificaciones\": {\n    \"additionalProp1\": {}\n  },\n  \"vehiculos\": [\n    {\n      \"modelo\": \"string\",\n      \"marca\": \"string\",\n      \"anio\": 0\n    }\n  ],\n  \"categorias\": [\n    \"string\"\n  ],\n  \"ciudades\": [\n    \"string\"\n  ]\n}",
+        "jsonBody": "={{ JSON.stringify($json) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        560,
+        1120,
         0
       ],
       "id": "626dd16d-2666-43e4-964a-f870c53a010b",
-      "name": "HTTP Request"
+      "name": "Crear producto",
+      "notes": "POST /productos (find-or-create). Cada item es ya un objeto ProductoCreate; se envía tal cual. Se ejecuta una vez por producto."
     }
   ],
   "pinData": {},
@@ -55,18 +161,62 @@
       "main": [
         [
           {
-            "node": "Information Extractor",
+            "node": "Extraer texto del archivo",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Information Extractor": {
+    "Extraer texto del archivo": {
       "main": [
         [
           {
-            "node": "HTTP Request",
+            "node": "Preparar texto fuente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar texto fuente": {
+      "main": [
+        [
+          {
+            "node": "Extraer productos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer productos": {
+      "main": [
+        [
+          {
+            "node": "Separar productos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Modelo de lenguaje": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Extraer productos",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Separar productos": {
+      "main": [
+        [
+          {
+            "node": "Crear producto",
             "type": "main",
             "index": 0
           }
@@ -76,8 +226,7 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1",
-    "binaryMode": "separate"
+    "executionOrder": "v1"
   },
   "versionId": "61e35c21-6e8f-43b4-9e21-9c288aa02b2c",
   "meta": {

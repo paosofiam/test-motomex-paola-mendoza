@@ -10,10 +10,16 @@
         0
       ],
       "id": "77b75fd6-ba9d-405a-b576-eef121012803",
-      "name": "Error Trigger"
+      "name": "Error Trigger",
+      "notes": "Se dispara cuando un workflow que tenga configurado este como 'Error Workflow' falla. Expone $json.execution (id, url, error, lastNodeExecuted) y $json.workflow (id, name)."
     },
     {
       "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "subject": "=⚠️ Error en workflow n8n: {{ $json.workflow.name }}",
+        "bodyContent": "=Se detuvo una ejecución por error.\n\nWorkflow: {{ $json.workflow.name }} (id {{ $json.workflow.id }})\nEjecución: {{ $json.execution.id }}\nNodo que falló: {{ $json.execution.lastNodeExecuted }}\nError: {{ $json.execution.error?.message }}\n\nRevisar la ejecución: {{ $json.execution.url }}",
+        "toRecipients": "admin@ejemplo.com",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.microsoftOutlook",
@@ -23,12 +29,17 @@
         0
       ],
       "id": "18ddf5a9-9bd7-4718-a67a-3aca01c6573e",
-      "name": "Send a message",
-      "webhookId": "0fe64951-5c4b-4198-94d9-5c9c654f75de"
+      "name": "Notificar admin por correo",
+      "webhookId": "0fe64951-5c4b-4198-94d9-5c9c654f75de",
+      "notes": "Requiere crear y seleccionar una credencial 'Microsoft Outlook OAuth2 API'. Reemplaza 'admin@ejemplo.com' por el correo real del administrador. El secreto NO se guarda en este JSON."
     },
     {
       "parameters": {
-        "additionalFields": {}
+        "chatId": "REEMPLAZAR_CHAT_ID_ADMIN",
+        "text": "=⚠️ Error en workflow n8n\nWorkflow: {{ $json.workflow.name }}\nEjecución: {{ $json.execution.id }}\nNodo: {{ $json.execution.lastNodeExecuted }}\nError: {{ $json.execution.error?.message }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
@@ -37,27 +48,34 @@
         0
       ],
       "id": "d8fe3467-d4c9-48ff-8d64-77fb9f6b8c92",
-      "name": "Send a text message",
+      "name": "Notificar admin por Telegram",
       "webhookId": "7631dadb-5b62-41d2-8057-c2a0bdbadc92",
       "credentials": {
         "telegramApi": {
           "id": "GZrIs6x70JFA8W8K",
           "name": "Telegram account"
         }
-      }
+      },
+      "notes": "Reemplaza 'REEMPLAZAR_CHAT_ID_ADMIN' por el chat id de Telegram del administrador. Usa la misma credencial 'Telegram API' del bot."
     },
     {
       "parameters": {
+        "method": "PATCH",
+        "url": "=https://api-test-motomex.paosofiam.com/chats/{{ $json.chat_id_afectado }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"chat_status_id\": 2, \"resumen\": \"Detenido por error del sistema; requiere revisión humana\" }",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        592,
+        624,
         0
       ],
       "id": "8ce299f1-cf08-43c6-a880-9afd2c760534",
-      "name": "HTTP Request"
+      "name": "Marcar chat en revisión humana",
+      "notes": "Deja el chat afectado en chat_status_id=2 (en revisión), segun catalogo chat_statuses. LIMITACION: el Error Trigger NO expone de forma fiable el chat_id de la ejecucion fallida; debes proveerlo. Ajusta la URL para tomar el chat_id real (p. ej. propagandolo via static data del workflow de chatbot o parseandolo del contexto del error). Si no hay chat_id disponible, deshabilita este nodo."
     }
   ],
   "pinData": {},
@@ -66,29 +84,29 @@
       "main": [
         [
           {
-            "node": "Send a message",
+            "node": "Notificar admin por correo",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Send a message": {
+    "Notificar admin por correo": {
       "main": [
         [
           {
-            "node": "Send a text message",
+            "node": "Notificar admin por Telegram",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Send a text message": {
+    "Notificar admin por Telegram": {
       "main": [
         [
           {
-            "node": "HTTP Request",
+            "node": "Marcar chat en revisión humana",
             "type": "main",
             "index": 0
           }
@@ -98,8 +116,7 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1",
-    "binaryMode": "separate"
+    "executionOrder": "v1"
   },
   "versionId": "af9aa136-eb57-4c7c-8f05-ef3e4588d9f2",
   "meta": {
