@@ -1,0 +1,215 @@
+{
+  "name": "Chatbot ventas Motomex (prueba endpoints)",
+  "nodes": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 300],
+      "webhookId": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": { "id": "", "name": "Telegram account" }
+      },
+      "notes": "Crea una credencial 'Telegram API' con el token del bot (de BotFather) y selecciónala aquí. El token NO se guarda en este JSON."
+    },
+    {
+      "id": "22222222-2222-4222-8222-222222222222",
+      "name": "GET chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api-test-motomex.paosofiam.com/chats?chat_whatsapp_id={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "33333333-3333-4333-8333-333333333333",
+      "name": "GET lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api-test-motomex.paosofiam.com/leads?chat_whatsapp_id={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "name": "POST chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-test-motomex.paosofiam.com/chats",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"lead_id\": {{ $('GET lead').item.json[0].id }}, \"chat_whatsapp_id\": \"{{ $('Telegram Trigger').item.json.message.chat.id }}\", \"chat_status_id\": 1, \"resumen\": \"Conversacion iniciada desde Telegram\" }",
+        "options": {}
+      },
+      "notes": "lead_id usa el primer resultado de 'GET lead'. Si el lead aun no existe, ajusta esta referencia o reordena segun tu logica."
+    },
+    {
+      "id": "55555555-5555-4555-8555-555555555555",
+      "name": "POST lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-test-motomex.paosofiam.com/leads",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"chat_whatsapp_id\": \"{{ $('Telegram Trigger').item.json.message.chat.id }}\", \"nombre_whatsapp\": \"{{ $('Telegram Trigger').item.json.message.from.first_name }}\", \"telefono\": \"+520000000000\", \"intencion_de_compra_id\": 1, \"nombre\": null, \"ciudad\": null, \"productos_interes\": [], \"vehiculo\": [], \"direccion_envio\": null }",
+        "options": {}
+      },
+      "notes": "telefono es OBLIGATORIO (patron +<digitos>, max 14). Placeholder +520000000000: reemplazalo por el real. ciudad es find-or-fail: si la envias, debe existir en el catalogo."
+    },
+    {
+      "id": "66666666-6666-4666-8666-666666666666",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [1200, 300],
+      "parameters": {
+        "options": {}
+      },
+      "notes": "Nodo en blanco a proposito. Conecta un Chat Model (entrada ai_languageModel) y configura prompt/herramientas desde la instancia."
+    },
+    {
+      "id": "77777777-7777-4777-8777-777777777777",
+      "name": "GET productos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api-test-motomex.paosofiam.com/productos?marca=&precio_minimo=",
+        "options": {}
+      },
+      "notes": "Rellena marca (texto) y precio_minimo (entero en centavos) en la query segun la busqueda. Ambos son opcionales: puedes borrar el que no uses."
+    },
+    {
+      "id": "88888888-8888-4888-8888-888888888888",
+      "name": "POST pre_ordenes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1680, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-test-motomex.paosofiam.com/pre_ordenes",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"lead_id\": {{ $('GET lead').item.json[0].id }}, \"total\": 10000, \"productos\": [ { \"producto_id\": {{ $('GET productos').item.json[0].id }}, \"cantidad\": 1 } ] }",
+        "options": {}
+      },
+      "notes": "total en CENTAVOS (>0); 10000 = $100.00 MXN es placeholder. producto_id exige el id exacto (sin resolver por texto). Ajusta cantidades y total reales."
+    },
+    {
+      "id": "99999999-9999-4999-8999-999999999999",
+      "name": "PATCH chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1920, 300],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api-test-motomex.paosofiam.com/chats/{{ $('POST chat').item.json.id }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"chat_status_id\": 5, \"resumen\": \"Pre-orden generada; venta cerrada\" }",
+        "options": {}
+      }
+    },
+    {
+      "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "name": "PATCH lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2160, 300],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api-test-motomex.paosofiam.com/leads/{{ $('POST lead').item.json.id }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"productos_interes\": [], \"vehiculo\": [] }",
+        "options": {}
+      },
+      "notes": "productos_interes es find-or-fail por modelo (422 si no existe). vehiculo es find-or-create: objetos {modelo, marca, anio}."
+    },
+    {
+      "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "name": "DELETE chats",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2400, 300],
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://api-test-motomex.paosofiam.com/chats/{{ $('POST chat').item.json.id }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      "name": "Responder mensaje",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2640, 300],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $('AI Agent').item.json.output }}",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": { "id": "", "name": "Telegram account" }
+      },
+      "notes": "Usa la misma credencial 'Telegram API' del trigger. El texto toma la salida del AI Agent."
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [[{ "node": "GET chat", "type": "main", "index": 0 }]]
+    },
+    "GET chat": {
+      "main": [[{ "node": "GET lead", "type": "main", "index": 0 }]]
+    },
+    "GET lead": {
+      "main": [[{ "node": "POST chat", "type": "main", "index": 0 }]]
+    },
+    "POST chat": {
+      "main": [[{ "node": "POST lead", "type": "main", "index": 0 }]]
+    },
+    "POST lead": {
+      "main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]]
+    },
+    "AI Agent": {
+      "main": [[{ "node": "GET productos", "type": "main", "index": 0 }]]
+    },
+    "GET productos": {
+      "main": [[{ "node": "POST pre_ordenes", "type": "main", "index": 0 }]]
+    },
+    "POST pre_ordenes": {
+      "main": [[{ "node": "PATCH chat", "type": "main", "index": 0 }]]
+    },
+    "PATCH chat": {
+      "main": [[{ "node": "PATCH lead", "type": "main", "index": 0 }]]
+    },
+    "PATCH lead": {
+      "main": [[{ "node": "DELETE chats", "type": "main", "index": 0 }]]
+    },
+    "DELETE chats": {
+      "main": [[{ "node": "Responder mensaje", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}
