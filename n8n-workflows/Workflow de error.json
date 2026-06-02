@@ -1,0 +1,110 @@
+{
+  "name": "Workflow de error",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "77b75fd6-ba9d-405a-b576-eef121012803",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "18ddf5a9-9bd7-4718-a67a-3aca01c6573e",
+      "name": "Send a message",
+      "webhookId": "0fe64951-5c4b-4198-94d9-5c9c654f75de"
+    },
+    {
+      "parameters": {
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "d8fe3467-d4c9-48ff-8d64-77fb9f6b8c92",
+      "name": "Send a text message",
+      "webhookId": "7631dadb-5b62-41d2-8057-c2a0bdbadc92",
+      "credentials": {
+        "telegramApi": {
+          "id": "GZrIs6x70JFA8W8K",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        592,
+        0
+      ],
+      "id": "8ce299f1-cf08-43c6-a880-9afd2c760534",
+      "name": "HTTP Request"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "af9aa136-eb57-4c7c-8f05-ef3e4588d9f2",
+  "meta": {
+    "instanceId": "58b2e22eda324b1eaa9c8f8d7e8f4202f314c7175e1322e379fc803adb96312e"
+  },
+  "id": "n75zy9XTM6BBMgxg",
+  "tags": []
+}

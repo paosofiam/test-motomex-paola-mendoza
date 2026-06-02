@@ -33,7 +33,7 @@ class LeadCreate(BaseModel):
 
 class LeadUpdate(BaseModel):
     nombre_whatsapp: str | None = None
-    telefono: str | None = None
+    telefono: str | None = Field(default=None, pattern=r'^\+\d{1,14}$')
     nombre: str | None = None
     ciudad: str | None = None
     productos_interes: list[str] | None = None

@@ -49,7 +49,11 @@ def get_by_chat_whatsapp_id(db: Session, chat_whatsapp_id: str) -> ChatResponse:
     """Chat activo más reciente por `chat_whatsapp_id`. Lanza `NotFoundError` (→ 404) si no existe."""
     chat = ChatModel.get_by_chat_whatsapp_id(db, chat_whatsapp_id)
     if chat is None:
-        raise NotFoundError("Chat", chat_whatsapp_id)
+        raise NotFoundError(
+            "Chat",
+            chat_whatsapp_id,
+            detail=f"No existe un chat activo para chat_whatsapp_id={chat_whatsapp_id}",
+        )
     return _to_response(chat)
 
 

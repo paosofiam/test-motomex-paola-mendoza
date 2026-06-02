@@ -1,0 +1,88 @@
+{
+  "name": "Extractor de productos",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "2e854b27-2b59-47e3-b093-953f9fea0d12",
+      "name": "On form submission",
+      "webhookId": "ee971abd-9e15-4f63-8b4b-d7a5129652c7"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "[\n  {\n  \"marca\": \"string\",\n  \"modelo\": \"string\",\n  \"precio\": 1,\n  \"moneda_id\": 1,\n  \"stock\": 0,\n  \"especificaciones\": {\n    \"additionalProp1\": {}\n  },\n  \"vehiculos\": [\n    {\n      \"modelo\": \"string\",\n      \"marca\": \"string\",\n      \"anio\": 0\n    }\n  ],\n  \"categorias\": [\n    \"string\"\n  ],\n  \"ciudades\": [\n    \"string\"\n  ]\n}\n]",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "b33e514d-841f-4abc-a894-0e3d25b6a570",
+      "name": "Information Extractor"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-test-motomex.paosofiam.com/productos",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"marca\": \"string\",\n  \"modelo\": \"string\",\n  \"precio\": 1,\n  \"moneda_id\": 1,\n  \"stock\": 0,\n  \"especificaciones\": {\n    \"additionalProp1\": {}\n  },\n  \"vehiculos\": [\n    {\n      \"modelo\": \"string\",\n      \"marca\": \"string\",\n      \"anio\": 0\n    }\n  ],\n  \"categorias\": [\n    \"string\"\n  ],\n  \"ciudades\": [\n    \"string\"\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        560,
+        0
+      ],
+      "id": "626dd16d-2666-43e4-964a-f870c53a010b",
+      "name": "HTTP Request"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Information Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Information Extractor": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "61e35c21-6e8f-43b4-9e21-9c288aa02b2c",
+  "meta": {
+    "instanceId": "58b2e22eda324b1eaa9c8f8d7e8f4202f314c7175e1322e379fc803adb96312e"
+  },
+  "id": "AKYnMJbawDpbDpZv",
+  "tags": []
+}
