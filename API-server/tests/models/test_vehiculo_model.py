@@ -30,7 +30,9 @@ def test_different_anio_is_distinct(db):
 
 
 def test_find_or_create_cascades_marca_and_is_deterministic(db):
+    """find-or-create es determinista: la misma tripleta (modelo, marca, anio) normalizada
+    devuelve el mismo registro, y la marca se crea en cascada normalizada."""
     a = resolvers.find_or_create_vehiculo(db, "Versa", "Nissan", 2015)
     b = resolvers.find_or_create_vehiculo(db, " versa ", "  NISSÁN ", 2015)
-    assert a.id == b.id  # misma tripleta → mismo registro
-    assert a.marca.marca == "nissan"  # marca creada en cascada y normalizada
+    assert a.id == b.id
+    assert a.marca.marca == "nissan"

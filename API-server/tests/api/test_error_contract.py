@@ -16,6 +16,7 @@ def _producto(**over):
 
 
 def test_not_found_problem_shape(client, seed_catalogs):
+    """NotFoundError no expone `field` en el problem+json."""
     r = client.get("/productos/999999")
     assert r.status_code == 404
     assert r.headers["content-type"].startswith("application/problem+json")
@@ -24,7 +25,7 @@ def test_not_found_problem_shape(client, seed_catalogs):
     assert body["title"] == "Not found"
     assert body["type"] == "https://api.example.com/errors/not-found"
     assert body["instance"] == "/productos/999999"
-    assert "field" not in body                      # NotFoundError no expone field
+    assert "field" not in body
 
 
 def test_resolution_error_problem_shape_has_field(client, seed_catalogs):
@@ -40,7 +41,7 @@ def test_resolution_error_problem_shape_has_field(client, seed_catalogs):
 
 
 def test_schema_validation_problem_shape_has_errors(client, seed_catalogs):
-    # precio<=0 → RequestValidationError de FastAPI → 422 con clave `errors`.
+    """Una violación de schema (precio<=0) → RequestValidationError de FastAPI → 422 con clave `errors`."""
     r = client.post("/productos", json=_producto(precio=0))
     assert r.status_code == 422
     assert r.headers["content-type"].startswith("application/problem+json")

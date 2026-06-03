@@ -1,6 +1,8 @@
 """Matriz de métodos: cada modelo expone EXACTAMENTE los métodos permitidos (API-server/CLAUDE.md).
 
-Bloquea agregar métodos fuera de contrato y bloquea quitar los permitidos.
+Bloquea agregar métodos fuera de contrato y bloquea quitar los permitidos. La constante MATRIX
+reproduce la matriz EXACTA de API-server/CLAUDE.md (y contracts.md); en particular
+LeadModel.search respalda GET /leads.
 """
 
 import pytest
@@ -28,7 +30,6 @@ def public_classmethods(cls):
     }
 
 
-# Matriz EXACTA de API-server/CLAUDE.md (y contracts.md).
 MATRIX = {
     MonedaModel: {"get_all", "get_by_id", "create"},
     EstadoModel: set(),
@@ -39,7 +40,7 @@ MATRIX = {
     CiudadModel: {"get_all", "get_by_id", "create"},
     VehiculoModel: {"get_all", "get_by_id", "create"},
     ProductoModel: {"get_all", "get_by_id", "search", "create", "delete"},
-    LeadModel: {"get_by_id", "search", "create", "update"},  # search respalda GET /leads
+    LeadModel: {"get_by_id", "search", "create", "update"},
     ChatModel: {
         "get_by_id",
         "get_by_chat_whatsapp_id",

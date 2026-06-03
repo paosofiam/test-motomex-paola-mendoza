@@ -29,11 +29,13 @@ def _create(**over):
 
 
 def test_create_returns_response_with_derived_fields(db, seed_catalogs):
+    """Campos derivados: `ciudad` Tier 2 normalizada, `estado` por join ciudad → estados, y
+    `chat_id` None mientras el lead no tiene chat activo."""
     resp = lead_service.create(db, _create(ciudad="Guadalajara"))
-    assert resp.ciudad == "guadalajara"               # Tier 2 normalizado
-    assert resp.estado == "Jalisco"                   # derivado: ciudad → estados
+    assert resp.ciudad == "guadalajara"
+    assert resp.estado == "Jalisco"
     assert isinstance(resp.intencion_de_compra, str) and resp.intencion_de_compra
-    assert resp.chat_id is None                        # sin chat activo aún
+    assert resp.chat_id is None
 
 
 def test_create_vehiculo_travels_as_object(db, seed_catalogs):
@@ -62,14 +64,15 @@ def test_chat_id_is_derived_after_chat_created(db, seed_catalogs):
 
 
 def test_update_partial_changes_only_sent_fields(db, seed_catalogs):
+    """Update parcial: solo cambian los campos enviados; los no enviados quedan intactos."""
     lead = lead_service.create(db, _create(nombre="Original"))
     updated = lead_service.update(db, lead.id, LeadUpdate(nombre="Real Name"))
     assert updated.nombre == "Real Name"
-    assert updated.nombre_whatsapp == "Juan"           # no enviado → intacto
+    assert updated.nombre_whatsapp == "Juan"
 
 
 def test_update_unknown_lead_raises_not_found(db, seed_catalogs):
-    # El modelo devuelve None; el service lo traduce a NotFoundError (→ 404).
+    """El modelo devuelve None ante un id inexistente; el service lo traduce a NotFoundError (→ 404)."""
     with pytest.raises(NotFoundError):
         lead_service.update(db, 999999, LeadUpdate(nombre="x"))
 
@@ -88,11 +91,13 @@ def test_create_populates_relations_under_production_autoflush(db, seed_catalogs
     la carga selectin de leads_productos/leads_vehiculos leería las tablas de relación aún vacías y la
     respuesta saldría con listas vacías. El conftest usa autoflush=True (default), que enmascara el
     bug, así que aquí lo suspendemos puntualmente con db.no_autoflush para reproducir producción.
+
+    El producto se siembra FUERA del bloque no_autoflush para que find_productos_by_modelo_or_fail lo
+    encuentre; lo que se prueba es el create del lead, no el seeding. Si productos_interes sale no
+    vacío, el fix persistió las relaciones antes del refresh.
     """
     from app.models.producto_model import ProductoModel
 
-    # El producto se siembra FUERA del bloque no_autoflush para que find_productos_by_modelo_or_fail
-    # lo encuentre; lo que se prueba es el create del lead, no el seeding.
     ProductoModel.create(db, marca="Bosch", modelo="Filtro Z", precio=100)
     payload = _create(
         productos_interes=["Filtro Z"],
@@ -101,6 +106,6 @@ def test_create_populates_relations_under_production_autoflush(db, seed_catalogs
     with db.no_autoflush:
         resp = lead_service.create(db, payload)
 
-    assert resp.productos_interes == ["Filtro Z"]   # no vacío: el fix las persistió antes del refresh
+    assert resp.productos_interes == ["Filtro Z"]
     assert len(resp.vehiculo) == 1
     assert resp.vehiculo[0].modelo == "versa"

@@ -27,10 +27,6 @@ def create_chat(
     payload: ChatCreate, response: Response, db: Session = Depends(get_db)
 ) -> Any:
     """Crea un chat. Soft-delete del chat activo previo obligatorio. Devuelve 201 + Location."""
-    # SERVICE (pendiente en services/chat_service.py):
-    #   - Validar que lead_id existe (→ NotFoundError → 404)
-    #   - Soft-delete del chat activo previo del mismo lead (invariante: un chat activo por lead)
-    #   - Verificar chat_status_id (Tier 1: id → string en respuesta vía join con chat_statuses)
     chat = chat_service.create(db, payload)
     response.headers["Location"] = f"/chats/{chat.id}"
     return chat
@@ -45,9 +41,6 @@ def read_chat_by_whatsapp_id(
     chat_whatsapp_id: str, db: Session = Depends(get_db)
 ) -> Any:
     """Devuelve el chat activo más reciente por `chat_whatsapp_id`. 404 si no existe."""
-    # SERVICE (pendiente en services/chat_service.py):
-    #   - Buscar chat activo por chat_whatsapp_id (ORDER BY created_at DESC LIMIT 1, deleted_at IS NULL)
-    #   - NotFoundError → 404 si no existe ningún chat activo con ese chat_whatsapp_id
     return chat_service.get_by_chat_whatsapp_id(db, chat_whatsapp_id)
 
 
@@ -58,8 +51,6 @@ def read_chat_by_whatsapp_id(
 )
 def read_chat(chat_id: int, db: Session = Depends(get_db)) -> Any:
     """Devuelve un chat activo por id. 404 si no existe o está soft-deleted."""
-    # SERVICE (pendiente en services/chat_service.py):
-    #   - ChatModel.get_by_id → NotFoundError → 404 si no existe o deleted_at IS NOT NULL
     return chat_service.get_by_id(db, chat_id)
 
 
@@ -72,10 +63,6 @@ def update_chat(
     chat_id: int, payload: ChatUpdate, db: Session = Depends(get_db)
 ) -> Any:
     """Actualización parcial de un chat (solo `chat_status_id` y `resumen`). Devuelve el chat completo."""
-    # SERVICE (pendiente en services/chat_service.py):
-    #   - Solo actualiza chat_status_id y resumen; lead_id y chat_whatsapp_id son inmutables
-    #   - Usar payload.model_dump(exclude_unset=True) para PATCH parcial (distinción campo enviado vs. ausente)
-    #   - NotFoundError → 404 si chat_id no existe o está soft-deleted
     return chat_service.update(db, chat_id, payload)
 
 
@@ -86,7 +73,4 @@ def update_chat(
 )
 def delete_chat(chat_id: int, db: Session = Depends(get_db)) -> None:
     """Soft-delete de un chat. 204 sin body. 404 si no existe o ya está soft-deleted."""
-    # SERVICE (pendiente en services/chat_service.py):
-    #   - Soft-delete: set deleted_at = now(). Hard-delete prohibido.
-    #   - NotFoundError → 404 si chat_id no existe o ya está soft-deleted
     chat_service.delete(db, chat_id)

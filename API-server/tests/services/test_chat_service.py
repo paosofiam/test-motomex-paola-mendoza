@@ -23,9 +23,10 @@ def _create(lead, **over):
 
 
 def test_create_returns_status_string_not_id(db, seed_catalogs):
+    """Tier 1: la respuesta devuelve `status` como string ("activo"), no el `chat_status_id`."""
     lead = make_lead(db)
     resp = chat_service.create(db, _create(lead, resumen="hola"))
-    assert isinstance(resp.status, str) and resp.status == "activo"  # Tier 1: string
+    assert isinstance(resp.status, str) and resp.status == "activo"
     assert not hasattr(resp, "chat_status_id")
     assert resp.lead_id == lead.id
 
@@ -36,7 +37,7 @@ def test_create_unknown_lead_raises_not_found(db, seed_catalogs):
 
 
 def test_create_unknown_chat_status_raises_resolution_error(db, seed_catalogs):
-    # chat_status_id es Tier 1 find-or-fail en el service → ResolutionError (→ 422), NO NotFoundError.
+    """chat_status_id es Tier 1 find-or-fail en el service → ResolutionError (→ 422), NO NotFoundError."""
     lead = make_lead(db)
     with pytest.raises(ResolutionError) as exc:
         chat_service.create(db, _create(lead, chat_status_id=999))
@@ -45,12 +46,12 @@ def test_create_unknown_chat_status_raises_resolution_error(db, seed_catalogs):
 
 
 def test_create_enforces_one_active_chat_per_lead(db, seed_catalogs):
+    """Un chat activo por lead: crear B soft-deletea A, y el lookup devuelve el activo más reciente."""
     lead = make_lead(db)
     a = chat_service.create(db, _create(lead))
-    b = chat_service.create(db, _create(lead))      # crea B → soft-delete de A
+    b = chat_service.create(db, _create(lead))
     assert db.get(ChatModel, a.id).deleted_at is not None
     assert db.get(ChatModel, b.id).deleted_at is None
-    # lookup devuelve el activo más reciente
     assert chat_service.get_by_chat_whatsapp_id(db, lead.chat_whatsapp_id).id == b.id
 
 
@@ -73,7 +74,7 @@ def test_update_changes_status_and_resumen(db, seed_catalogs):
 
 
 def test_update_unknown_chat_status_raises_resolution_error_before_flush(db, seed_catalogs):
-    # Valida el chat_status_id (Tier 1) ANTES de actualizar → ResolutionError, no un IntegrityError de FK.
+    """Valida el chat_status_id (Tier 1) ANTES del flush → ResolutionError, no un IntegrityError de FK."""
     lead = make_lead(db)
     chat = chat_service.create(db, _create(lead))
     with pytest.raises(ResolutionError) as exc:

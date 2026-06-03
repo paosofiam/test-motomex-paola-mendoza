@@ -30,8 +30,6 @@ from app.core.exceptions import ResolutionError
 from app.core.mixins import _now
 from app.core.normalization import normalize
 
-# Importaciones solo para el type-checker; no se ejecutan en runtime (evitan importaciones
-# circulares: producto_model → resolvers → producto_model).
 if TYPE_CHECKING:
     from app.models.categoria_model import CategoriaModel
     from app.models.chat_model import ChatModel

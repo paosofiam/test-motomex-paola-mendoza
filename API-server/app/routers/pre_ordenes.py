@@ -27,12 +27,6 @@ def create_pre_orden(
     payload: PreOrdenCreate, response: Response, db: Session = Depends(get_db)
 ) -> Any:
     """Crea una pre-orden. `producto_id` exacto requerido (sin resolución por string). Devuelve 201 + Location."""
-    # SERVICE (pendiente en services/pre_orden_service.py):
-    #   - Validar que lead_id existe (→ NotFoundError → 404)
-    #   - Validar cada producto_id exacto (Tier 3: sin resolución por string ni find-or-create)
-    #     → NotFoundError → 404 si no existe o está soft-deleted
-    #   - total llega ya en MXN centavos; NO se convierte (el agente LLM lo convierte antes de enviar)
-    #   - Respuesta incluye modelo derivado de producto.modelo por cada ítem (join en la capa model)
     pre_orden = pre_orden_service.create(db, payload)
     response.headers["Location"] = f"/pre_ordenes/{pre_orden.id}"
     return pre_orden

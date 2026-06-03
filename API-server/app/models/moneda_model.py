@@ -1,4 +1,8 @@
-"""Catálogo Tier 1: monedas. Sin delete (catálogo)."""
+"""Catálogo Tier 1: monedas. Sin delete (catálogo).
+
+`tipo_de_cambio` se almacena en centavos relativos a MXN (MXN=100, USD=1700, EUR=2300):
+`mxn_centavos = round(precio * tipo_de_cambio / 100)`.
+"""
 
 from sqlalchemy import Integer, String, UniqueConstraint, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
@@ -13,9 +17,7 @@ class MonedaModel(TimestampMixin, Base):
 
     moneda: Mapped[str] = mapped_column(String(255), nullable=False)
     abreviacion: Mapped[str] = mapped_column(String(10), nullable=False)
-    tipo_de_cambio: Mapped[int] = mapped_column(Integer, nullable=False)  # centavos vs MXN
-
-    # ---- Métodos de la matriz -------------------------------------------------
+    tipo_de_cambio: Mapped[int] = mapped_column(Integer, nullable=False)
 
     @classmethod
     def get_all(cls, db: Session) -> list["MonedaModel"]:

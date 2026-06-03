@@ -19,6 +19,9 @@ def _setup_lead_and_producto(client):
 
 
 def test_post_creates_with_location_total_and_modelo(client, seed_catalogs):
+    """`total` se persiste en MXN centavos tal cual, sin reconversión al leer.
+    `modelo` de cada línea es derivado de producto.modelo (no se almacena en la línea).
+    """
     lead, prod = _setup_lead_and_producto(client)
     r = client.post("/pre_ordenes", json={
         "lead_id": lead["id"], "total": 29997,
@@ -27,11 +30,11 @@ def test_post_creates_with_location_total_and_modelo(client, seed_catalogs):
     assert r.status_code == 201
     body = r.json()
     assert r.headers["location"] == f"/pre_ordenes/{body['id']}"
-    assert body["total"] == 29997                       # MXN centavos, tal cual
+    assert body["total"] == 29997
     assert isinstance(body["total"], int)
     linea = body["productos"][0]
     assert linea["producto_id"] == prod["id"]
-    assert linea["modelo"] == "Filtro"                  # derivado de producto.modelo
+    assert linea["modelo"] == "Filtro"
     assert linea["cantidad"] == 3
 
 

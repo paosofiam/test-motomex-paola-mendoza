@@ -17,8 +17,6 @@ class CategoriaModel(TimestampMixin, Base):
 
     categoria: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    # ---- Métodos de la matriz -------------------------------------------------
-
     @classmethod
     def get_all(cls, db: Session) -> list["CategoriaModel"]:
         return list(db.scalars(select(cls).where(cls.deleted_at.is_(None))))

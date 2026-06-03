@@ -1,4 +1,4 @@
-"""Tabla de relación N:M leads_productos (productos de interés). Sin métodos (pendiente).
+"""Tabla de relación N:M leads_productos (productos de interés). Sin métodos propios: las filas se gestionan desde LeadModel.
 
 Columnas estándar + 2 FKs + UNIQUE(lead_id, producto_id). La relación `producto`
 (solo mapeo) permite que LeadModel exponga `productos_interes` como [modelo].

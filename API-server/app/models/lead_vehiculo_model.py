@@ -1,4 +1,4 @@
-"""Tabla de relación N:M leads_vehiculos (vehículos del lead). Sin métodos (pendiente).
+"""Tabla de relación N:M leads_vehiculos (vehículos del lead). Sin métodos propios: las filas se gestionan desde LeadModel.
 
 Columnas estándar + 2 FKs + UNIQUE(lead_id, vehiculo_id). La relación `vehiculo`
 (solo mapeo) permite que LeadModel exponga `vehiculo` como [{modelo, marca, anio}].

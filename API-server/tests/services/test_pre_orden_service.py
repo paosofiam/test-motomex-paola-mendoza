@@ -34,9 +34,10 @@ def test_create_unknown_producto_raises_not_found(db, seed_catalogs):
 
 
 def test_create_valid_returns_response_with_total_and_modelo(db, seed_catalogs):
+    """`total` se devuelve tal cual en centavos MXN y `modelo` es derivado de producto.modelo."""
     lead = make_lead(db)
     p = ProductoModel.create(db, marca="Nissan", modelo="Filtro", precio=9999)
     resp = pre_orden_service.create(db, _payload(lead.id, p.id, total=29997, cantidad=3))
-    assert resp.total == 29997                       # MXN centavos, tal cual
-    assert resp.productos[0].modelo == "Filtro"      # derivado de producto.modelo
+    assert resp.total == 29997
+    assert resp.productos[0].modelo == "Filtro"
     assert resp.productos[0].cantidad == 3

@@ -25,8 +25,6 @@ class VehiculoModel(TimestampMixin, Base):
 
     marca: Mapped["MarcaModel"] = relationship(lazy="joined")  # noqa: F821
 
-    # ---- Métodos de la matriz -------------------------------------------------
-
     @classmethod
     def get_all(cls, db: Session) -> list["VehiculoModel"]:
         return list(db.scalars(select(cls).where(cls.deleted_at.is_(None))))

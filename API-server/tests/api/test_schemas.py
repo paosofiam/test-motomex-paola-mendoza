@@ -16,12 +16,11 @@ from app.schemas.pre_orden import PreOrdenCreate, PreOrdenProductoCreate
 from app.schemas.producto import ProductoCreate
 
 
-# --- ProductoCreate -------------------------------------------------------------------------
-
 def test_producto_defaults():
+    """Defaults del schema: `moneda_id=1` (MXN), `stock=0`, listas vacías y especificaciones None."""
     p = ProductoCreate(marca="Nissan", modelo="Versa", precio=12999)
-    assert p.moneda_id == 1          # default MXN
-    assert p.stock == 0              # default
+    assert p.moneda_id == 1
+    assert p.stock == 0
     assert p.vehiculos == [] and p.categorias == [] and p.ciudades == []
     assert p.especificaciones is None
 
@@ -39,12 +38,10 @@ def test_producto_stock_non_negative():
 
 
 def test_producto_ignores_unknown_fields():
-    # extra="ignore" (default Pydantic): un campo no declarado se descarta, no se rechaza.
+    """extra="ignore": un campo no declarado se descarta, no se rechaza."""
     p = ProductoCreate(marca="Nissan", modelo="Versa", precio=1, campo_inventado="x")
     assert not hasattr(p, "campo_inventado")
 
-
-# --- LeadCreate / LeadUpdate ----------------------------------------------------------------
 
 def _lead_kwargs(**over):
     base = dict(
@@ -75,12 +72,13 @@ def test_lead_telefono_accepts_valid_e164(good):
 
 
 def test_lead_requires_mandatory_fields():
+    """Omitir un campo obligatorio (aquí `chat_whatsapp_id`) → ValidationError."""
     with pytest.raises(ValidationError):
-        LeadCreate(nombre_whatsapp="Juan", telefono="+52", intencion_de_compra_id=1)  # falta chat_whatsapp_id
+        LeadCreate(nombre_whatsapp="Juan", telefono="+52", intencion_de_compra_id=1)
 
 
 def test_lead_ignores_estado_in_body():
-    # `estado` es derivado (NO se acepta en bodies); extra="ignore" lo descarta sin error.
+    """`estado` es derivado (no se acepta en bodies): extra="ignore" lo descarta sin error."""
     lead = LeadCreate(**_lead_kwargs(estado="Jalisco"))
     assert not hasattr(lead, "estado")
 
@@ -91,21 +89,18 @@ def test_lead_update_all_optional():
     assert u.model_dump(exclude_unset=True) == {"nombre": "Real"}
 
 
-# --- ChatCreate / ChatUpdate ----------------------------------------------------------------
-
 def test_chat_create_requires_ids():
+    """Omitir un id obligatorio (aquí `lead_id`) → ValidationError."""
     with pytest.raises(ValidationError):
-        ChatCreate(chat_whatsapp_id="wa-1", chat_status_id=1)  # falta lead_id
+        ChatCreate(chat_whatsapp_id="wa-1", chat_status_id=1)
 
 
 def test_chat_update_only_status_and_resumen():
-    # lead_id y chat_whatsapp_id son inmutables: no son campos de ChatUpdate (extra="ignore" los descarta).
+    """`lead_id` y `chat_whatsapp_id` son inmutables: no son campos de ChatUpdate y extra="ignore" los descarta."""
     u = ChatUpdate(chat_status_id=2, resumen="x", lead_id=99, chat_whatsapp_id="otro")
     assert not hasattr(u, "lead_id") and not hasattr(u, "chat_whatsapp_id")
     assert u.model_dump(exclude_unset=True) == {"chat_status_id": 2, "resumen": "x"}
 
-
-# --- PreOrdenCreate -------------------------------------------------------------------------
 
 def test_pre_orden_requires_at_least_one_producto():
     with pytest.raises(ValidationError):
@@ -118,8 +113,6 @@ def test_pre_orden_total_and_cantidad_positive():
     with pytest.raises(ValidationError):
         PreOrdenProductoCreate(producto_id=1, cantidad=0)
 
-
-# --- VehiculoSchema -------------------------------------------------------------------------
 
 def test_vehiculo_schema_shape():
     v = VehiculoSchema(modelo="Versa", marca="Nissan", anio=2015)

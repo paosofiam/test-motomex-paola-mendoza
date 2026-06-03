@@ -12,8 +12,6 @@ class IntencionDeCompraDeLeadModel(TimestampMixin, Base):
 
     tipo: Mapped[str] = mapped_column(String(50), nullable=False)
 
-    # ---- Métodos de la matriz -------------------------------------------------
-
     @classmethod
     def get_all(cls, db: Session) -> list["IntencionDeCompraDeLeadModel"]:
         return list(db.scalars(select(cls).where(cls.deleted_at.is_(None))))

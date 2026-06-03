@@ -22,15 +22,14 @@ def _chat_payload(lead, **over):
     return base
 
 
-# --- POST -----------------------------------------------------------------------------------
-
 def test_post_creates_with_location_and_status_string(client, seed_catalogs):
+    """`status` es Tier 1: la respuesta devuelve el string derivado, no el `chat_status_id`."""
     lead = _create_lead(client)
     r = client.post("/chats", json=_chat_payload(lead, resumen="hola"))
     assert r.status_code == 201
     body = r.json()
     assert r.headers["location"] == f"/chats/{body['id']}"
-    assert isinstance(body["status"], str) and body["status"]   # Tier 1: string, no chat_status_id
+    assert isinstance(body["status"], str) and body["status"]
     assert "chat_status_id" not in body
     assert body["lead_id"] == lead["id"]
 
@@ -41,8 +40,9 @@ def test_post_unknown_lead_404(client, seed_catalogs):
 
 
 def test_post_unknown_chat_status_is_422(client, seed_catalogs):
-    # chat_status_id es Tier 1 (catálogo): id que no resuelve → 422 ResolutionError con field.
-    # (lead_id, Tier 3, sigue siendo 404 — ver test anterior.)
+    """`chat_status_id` es Tier 1 (catálogo): un id que no resuelve → 422 ResolutionError con field.
+    Contrasta con `lead_id` (Tier 3), que sigue siendo 404 (ver test anterior).
+    """
     lead = _create_lead(client)
     r = client.post("/chats", json=_chat_payload(lead, chat_status_id=999))
     assert r.status_code == 422
@@ -51,18 +51,18 @@ def test_post_unknown_chat_status_is_422(client, seed_catalogs):
 
 
 def test_post_enforces_one_active_chat_per_lead(client, seed_catalogs, db):
+    """Un chat activo por lead: crear B soft-deleta A.
+    GET por chat_whatsapp_id devuelve un único chat: el activo más reciente.
+    """
     lead = _create_lead(client)
     a = client.post("/chats", json=_chat_payload(lead)).json()
-    b = client.post("/chats", json=_chat_payload(lead)).json()      # crea B → soft-delete de A
-    assert db.get(ChatModel, a["id"]).deleted_at is not None        # A soft-deleted
-    assert db.get(ChatModel, b["id"]).deleted_at is None            # B activo
-    # GET por chat_whatsapp_id devuelve un único chat (el activo más reciente)
+    b = client.post("/chats", json=_chat_payload(lead)).json()
+    assert db.get(ChatModel, a["id"]).deleted_at is not None
+    assert db.get(ChatModel, b["id"]).deleted_at is None
     r = client.get("/chats", params={"chat_whatsapp_id": lead["chat_whatsapp_id"]})
     assert r.status_code == 200
     assert r.json()["id"] == b["id"]
 
-
-# --- GET ------------------------------------------------------------------------------------
 
 def test_get_by_whatsapp_id_404_when_none(client, seed_catalogs):
     assert client.get("/chats", params={"chat_whatsapp_id": "no-existe"}).status_code == 404
@@ -74,8 +74,6 @@ def test_get_by_id_ok_and_404(client, seed_catalogs):
     assert client.get(f"/chats/{cid}").status_code == 200
     assert client.get("/chats/999999").status_code == 404
 
-
-# --- PATCH ----------------------------------------------------------------------------------
 
 def test_patch_updates_status_and_resumen(client, seed_catalogs):
     lead = _create_lead(client)
@@ -99,17 +97,16 @@ def test_patch_unknown_chat_404(client, seed_catalogs):
 
 
 def test_patch_ignores_immutable_lead_id_and_whatsapp(client, seed_catalogs):
+    """`lead_id` y `chat_whatsapp_id` son inmutables tras crear: el PATCH los ignora."""
     lead = _create_lead(client)
     chat = client.post("/chats", json=_chat_payload(lead)).json()
     r = client.patch(f"/chats/{chat['id']}", json={
         "resumen": "r", "lead_id": 999999, "chat_whatsapp_id": "otro",
     })
     assert r.status_code == 200
-    assert r.json()["lead_id"] == lead["id"]                       # inmutable
-    assert r.json()["chat_whatsapp_id"] == lead["chat_whatsapp_id"]  # inmutable
+    assert r.json()["lead_id"] == lead["id"]
+    assert r.json()["chat_whatsapp_id"] == lead["chat_whatsapp_id"]
 
-
-# --- DELETE (soft) --------------------------------------------------------------------------
 
 def test_delete_is_soft_and_idempotent_404(client, seed_catalogs, db):
     lead = _create_lead(client)

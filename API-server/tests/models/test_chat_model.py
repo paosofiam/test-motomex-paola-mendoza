@@ -7,10 +7,12 @@ from tests.factories import make_chat, make_lead
 
 
 def test_create_soft_deletes_previous_active(db, seed_catalogs):
+    """Un chat activo por lead: crear un chat nuevo soft-deletea el previo (queda con
+    deleted_at), dejando un único chat activo."""
     lead = make_lead(db)
     first = make_chat(db, lead_id=lead.id)
     second = make_chat(db, lead_id=lead.id)
-    assert first.deleted_at is not None  # el previo quedó soft-deleted
+    assert first.deleted_at is not None
     activos = db.scalars(
         select(ChatModel).where(ChatModel.lead_id == lead.id, ChatModel.deleted_at.is_(None))
     ).all()
@@ -31,11 +33,13 @@ def test_get_by_chat_whatsapp_id(db, seed_catalogs):
 
 
 def test_update_only_touches_status_and_resumen(db, seed_catalogs):
+    """update solo toca chat_status_id y resumen; lead_id es inmutable tras crear (ni
+    siquiera es parámetro de update)."""
     lead = make_lead(db)
     chat = make_chat(db, lead_id=lead.id)
     updated = ChatModel.update(db, chat.id, chat_status_id=5, resumen="cerrado")
     assert updated.chat_status_id == 5 and updated.resumen == "cerrado"
-    assert updated.lead_id == lead.id  # inmutable (no es parámetro de update)
+    assert updated.lead_id == lead.id
 
 
 def test_delete_is_soft(db, seed_catalogs):

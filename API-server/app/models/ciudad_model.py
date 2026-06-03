@@ -22,8 +22,6 @@ class CiudadModel(TimestampMixin, Base):
 
     estado: Mapped["EstadoModel"] = relationship(lazy="joined")  # noqa: F821
 
-    # ---- Métodos de la matriz -------------------------------------------------
-
     @classmethod
     def get_all(cls, db: Session) -> list["CiudadModel"]:
         return list(db.scalars(select(cls).where(cls.deleted_at.is_(None))))

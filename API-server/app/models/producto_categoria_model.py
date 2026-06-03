@@ -1,4 +1,4 @@
-"""Tabla de relación N:M productos_categorias. Sin métodos (pendiente).
+"""Tabla de relación N:M productos_categorias. Sin métodos propios: las filas se gestionan desde ProductoModel.
 
 Columnas estándar + 2 FKs + UNIQUE(producto_id, categoria_id).
 """

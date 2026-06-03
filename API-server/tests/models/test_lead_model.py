@@ -32,7 +32,8 @@ def test_create_vehiculo_find_or_create_cascades(db, seed_catalogs):
 
 
 def test_productos_interes_multimatch_persists_all(db, seed_catalogs):
-    # Un mismo `modelo` que matchea dos productos → dos filas en leads_productos.
+    """productos_interes es find-or-fail por modelo: un modelo que matchea varios productos
+    persiste la relación con todos ellos (dos filas en leads_productos)."""
     ProductoModel.create(db, marca="Bosch", modelo="Balata X", precio=100)
     ProductoModel.create(db, marca="ATE", modelo="Balata X", precio=200)
     lead = make_lead(db, productos_interes=["Balata X"])
@@ -45,8 +46,9 @@ def test_productos_interes_multimatch_persists_all(db, seed_catalogs):
 
 
 def test_update_refreshes_updated_at_only(db, seed_catalogs):
+    """update refresca updated_at y deja created_at intacto. Se fuerzan los timestamps al
+    pasado para esquivar la truncación a segundos de MySQL DATETIME, que igualaría ambos."""
     lead = make_lead(db)
-    # Forzamos timestamps al pasado para evitar la truncación a segundos de MySQL DATETIME.
     past = datetime(2020, 1, 1, 0, 0, 0)
     lead.created_at = past
     lead.updated_at = past
@@ -54,18 +56,21 @@ def test_update_refreshes_updated_at_only(db, seed_catalogs):
 
     updated = LeadModel.update(db, lead.id, nombre="Real Name")
     assert updated.nombre == "Real Name"
-    assert updated.created_at == past          # no cambia
-    assert updated.updated_at > past           # se refresca
+    assert updated.created_at == past
+    assert updated.updated_at > past
 
 
 def test_update_unknown_lead_returns_none(db, seed_catalogs):
-    # El modelo devuelve None; la traducción a NotFoundError (404) vive en el service.
+    """Ante un lead inexistente el modelo devuelve None; la traducción a NotFoundError (404)
+    vive en la capa service, no en el modelo."""
     assert LeadModel.update(db, 999999, nombre="x") is None
 
 
 def test_search_filters_by_whatsapp_and_intencion(db, seed_catalogs):
-    a = make_lead(db, chat_whatsapp_id="wa-A", intencion_de_compra_id=3)  # "alta"
-    make_lead(db, chat_whatsapp_id="wa-B", intencion_de_compra_id=1)      # "baja"
+    """search respalda GET /leads filtrando por chat_whatsapp_id y por intencion_de_compra
+    (Tier 1: el id 3 resuelve a "alta" y el id 1 a "baja" en la respuesta)."""
+    a = make_lead(db, chat_whatsapp_id="wa-A", intencion_de_compra_id=3)
+    make_lead(db, chat_whatsapp_id="wa-B", intencion_de_compra_id=1)
     by_wa = LeadModel.search(db, chat_whatsapp_id="wa-A")
     assert [l.id for l in by_wa] == [a.id]
     by_intencion = LeadModel.search(db, intencion_de_compra="alta")
@@ -73,8 +78,10 @@ def test_search_filters_by_whatsapp_and_intencion(db, seed_catalogs):
 
 
 def test_estado_is_derived_from_city(db, seed_catalogs):
+    """estado es derivado, no almacenado: se resuelve por el join transitivo
+    leads.ciudad → ciudades.estado → estados.estado."""
     lead = make_lead(db, ciudad="Guadalajara")
-    assert lead.ciudad.estado.estado == "Jalisco"  # leads.ciudad → ciudades.estado → estados
+    assert lead.ciudad.estado.estado == "Jalisco"
 
 
 def test_active_chat_id_resolver(db, seed_catalogs):

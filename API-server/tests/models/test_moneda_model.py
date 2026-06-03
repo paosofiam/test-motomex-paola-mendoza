@@ -15,7 +15,7 @@ def test_create_sets_equal_timestamps(db):
 
 
 def test_create_keeps_value_unnormalized(db):
-    # Tier 1: el string se devuelve tal cual (sin lowercase/sin acentos).
+    """Tier 1: el string se persiste y devuelve tal cual, sin lowercase ni quitar acentos."""
     m = MonedaModel.create(db, moneda="Pesos", abreviacion="MXN", tipo_de_cambio=100)
     assert m.abreviacion == "MXN"
 

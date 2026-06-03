@@ -16,18 +16,20 @@ class _BadDB:
 
 
 def test_get_health_ok_when_db_responds(db):
+    """Con la sesión real el probe responde: status "ok" y timestamp ISO-8601 presente."""
     resp = health_service.get_health(db)
     assert isinstance(resp, HealthResponse)
-    assert resp.status == "ok"                       # con la sesión real, el probe responde
+    assert resp.status == "ok"
     assert resp.db.status == "ok"
     assert isinstance(resp.db.latency_ms, int)
     assert isinstance(resp.uptime_seconds, int)
-    assert resp.timestamp                            # ISO-8601 presente
+    assert resp.timestamp
 
 
 def test_get_health_degraded_when_db_probe_fails():
+    """El status global cae a "degraded" si la BD no responde al probe."""
     resp = health_service.get_health(_BadDB())
-    assert resp.status == "degraded"                 # overall cae si la BD no responde
+    assert resp.status == "degraded"
     assert resp.db.status == "error"
     assert resp.db.latency_ms is None
     assert isinstance(resp.uptime_seconds, int)

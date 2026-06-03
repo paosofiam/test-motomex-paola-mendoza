@@ -31,15 +31,13 @@ class ProductoModel(TimestampMixin, Base):
 
     marca_id: Mapped[int] = mapped_column(ForeignKey("marcas.id"), nullable=False)
     modelo: Mapped[str] = mapped_column(String(255), nullable=False)
-    precio: Mapped[int] = mapped_column(Integer, nullable=False)  # centavos (moneda original)
+    precio: Mapped[int] = mapped_column(Integer, nullable=False)
     moneda_id: Mapped[int] = mapped_column(ForeignKey("monedas.id"), nullable=False, default=1)
     stock: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     especificaciones: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     marca: Mapped["MarcaModel"] = relationship(lazy="joined")
     moneda: Mapped["MonedaModel"] = relationship(lazy="joined")  # noqa: F821
-
-    # ---- Métodos de la matriz -------------------------------------------------
 
     @classmethod
     def get_all(cls, db: Session) -> list["ProductoModel"]:

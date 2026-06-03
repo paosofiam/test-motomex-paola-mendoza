@@ -1,9 +1,11 @@
 # test-motomex-paola-mendoza
 Repositorio con desarrollo para prueba téncica para el puesto de Especialista en Automatización e IA de Motomex. El objetivo es  implementar un **chatbot con IA** que pueda atender clientes por WhatsApp, vender refacciones directamente, recomendar productos compatibles y cerrar ventas sin intervención humana.
+
 ## Caso de estudio
 Una empresa dedicada a la venta de **refacciones automotrices** ha incrementado sus ventas durante el último año. La mayoría de sus ventas y conversaciones con clientes ocurren por **WhatsApp**. Debido al aumento en volumen, los clientes hacen cada vez más preguntas sobre productos, disponibilidad, precios y compatibilidad. Actualmente, la empresa no cuenta con toda esta información estructurada en una base de datos, sino en textos descriptivos de productos.
 
 La dirección de la empresa quiere implementar un **chatbot con IA** que pueda atender clientes por WhatsApp, vender refacciones directamente, recomendar productos compatibles y cerrar ventas sin intervención humana.
+
 ### Objetivo
 Construir una solución de automatización e IA que permita:
 1. Extraer información de productos desde texto en prosa.
@@ -13,6 +15,7 @@ Construir una solución de automatización e IA que permita:
 5. Crear un chatbot en n8n que consulte esa API.
 6. Capturar información de nuevos clientes.
 7. Registrar leads para seguimiento comercial.
+
 ### Entregables
 1. Workflow de n8n exportado.
 2. Código o configuración de la API.
@@ -24,66 +27,54 @@ Construir una solución de automatización e IA que permita:
 8. Preguntas de cierre.
 
 ## Documentación técnica
-
 Las especificaciones del proyecto están divididas en tres documentos complementarios:
 
 - [`contracts.md`](./API-server/specs/contracts.md) — stack, convenciones de nomenclatura, fases de desarrollo, modelos y las **decisiones de lógica de negocio** detrás de la base de datos y los endpoints.
 - [`er_diagram.md`](./API-server/specs/er_diagram.md) — diagrama entidad-relación en Mermaid, tablas, columnas, FKs, columnas estándar, valores por defecto y seeders.
 - [`endpoints.md`](./API-server/specs/endpoints.md) — tabla de endpoints REST, tipos de recursos, formato de respuestas y errores (RFC 7807), política Tier 1/2/3 de catálogos y política find-or-create/find-or-fail.
 
-Stack: MySQL + FastAPI + SQLAlchemy/Pydantic, consumido por un chatbot de n8n sobre WhatsApp.
+Stack: MySQL + FastAPI + SQLAlchemy/Pydantic, consumido por un chatbot de n8n sobre WhatsApp (Telegram).
 
-## Puesta en marcha de la base de datos (paso a paso)
-
-> **Para quién es esta guía:** alguien que **nunca ha tocado este proyecto, ni Python, ni el framework**. Sigue los pasos en orden, de arriba hacia abajo, copiando y pegando cada comando tal cual.
->
-> Todos los comandos son para **PowerShell en Windows**.
+## Instalación del Backend del proyecto en entorno ** local ** (paso a paso)
+Esta guía está dirigida a usuario sin contexto previo del proyecto, ni Python, ni el framework que desee correr el proyecto **en Local**. Sigue los pasos en orden, de arriba hacia abajo, copiando y pegando cada comando tal cual. Todos los comandos son para **PowerShell en Windows**.
 
 Al terminar tendrás una base de datos llamada `motomex` con todas sus tablas creadas y llenas de datos de ejemplo, lista para que la API la consulte.
 
-### Paso 0 — Instalar el software base (solo la primera vez)
-
-Necesitas dos programas instalados antes de empezar:
-
-1. **XAMPP** — un paquete que incluye **MySQL** (el motor donde vive la base de datos) y **Apache** (un servidor web que aquí usamos solo para abrir *phpMyAdmin*, una página para ver la base de datos con el mouse).
+### Paso 0 — Pre-requisitos (solo la primera vez)
+1. **XAMPP** — un paquete que incluye **MySQL** y **Apache**.
    - Descárgalo de https://www.apachefriends.org e instálalo con las opciones por defecto.
    - Abre el **XAMPP Control Panel** y pulsa **Start** en los renglones de **Apache** y **MySQL** (ambos deben quedar en verde).
    - Comprueba que funciona abriendo en el navegador: http://localhost/phpmyadmin
 
 2. **Python 3.14** — el lenguaje en el que está escrita la API.
-   - Descárgalo de https://www.python.org/downloads/ e instálalo. **MUY IMPORTANTE:** en la primera pantalla del instalador, marca la casilla **"Add Python to PATH"** antes de continuar.
+   - Descárgalo de https://www.python.org/downloads/ e instálalo. Asegúrate de, en la primera pantalla del instalador, marcar la casilla **"Add Python to PATH"** antes de continuar con la instalación.
    - Verifica que quedó instalado abriendo PowerShell y escribiendo:
-     ```powershell
+     ```
      py -3.14 --version
      ```
      Debe responder algo como `Python 3.14.x`. Si dice "no se reconoce", reinstala marcando "Add Python to PATH".
 
 ### Paso 1 — Crear la base de datos vacía
-
-La base de datos es como un archivo gigante donde se guardan los datos en tablas. Primero hay que crearla vacía; las tablas las llenamos después.
-
 1. Abre http://localhost/phpmyadmin en el navegador.
 2. En el menú izquierdo haz clic en **Nueva** / **New**.
-3. Escribe el nombre **`motomex`**, en el desplegable de cotejamiento (collation) elige **`utf8mb4_unicode_ci`** y pulsa **Crear** / **Create**.
-
-> Alternativa con SQL: en la pestaña **SQL** de phpMyAdmin, pega y ejecuta:
-> ```sql
+3. Escribe el nombre **`motomex`**, en el desplegable de cotejamiento (collation) elige **`utf8mb4_unicode_ci`** y pulsa **Crear** / **Create**
+4. Como alternativa con SQL: en la pestaña **SQL** de phpMyAdmin, pega y ejecuta:
+> ```
 > CREATE DATABASE motomex CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 > ```
 
-### Paso 2 — Preparar el entorno de Python (desde cero)
-
-Un **entorno virtual** (venv) es una carpeta aislada donde se instalan las librerías de **este** proyecto sin ensuciar el resto de tu computadora. Lo creamos una vez.
+### Paso 2 — Levantar entorno virtual de python (desde cero)
+FastAPI de Python requiere de un entorno virtual para poder ejecutarse en el entorno de desarrollo local. A continuación se muestran el paso paso para levantarlo antes de continuar con los siguientes pasos.
 
 Abre PowerShell y **muévete a la carpeta del backend**. Sustituye la ruta por donde hayas descargado el proyecto:
 
-```powershell
+```
 cd C:\xampp\htdocs\test-motomex-paola-mendoza\API-server
 ```
 
 Ahora, en ese orden:
 
-```powershell
+```
 # 1. Crear el entorno virtual (crea una carpeta .venv)
 py -3.14 -m venv .venv
 
@@ -101,13 +92,12 @@ Notas:
 - Cuando el entorno está activo, el inicio de cada renglón muestra **`(.venv)`**. Si cierras y vuelves a abrir PowerShell, repite el `cd` y el comando de activación (paso 2) antes de seguir.
 - El archivo `.env` ya viene configurado para un **XAMPP recién instalado** (usuario `root` sin contraseña en `localhost:3306`, base `motomex`). Solo edítalo si cambiaste esas credenciales.
 - **Si la activación falla** con un error de "ejecución de scripts está deshabilitada", corre esto una vez y reintenta el paso 2:
-  ```powershell
+  ```
   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
   ```
 
-### Paso 3 — Crear las tablas (migraciones), una por una
-
-Las **migraciones** son scripts que crean las tablas en el orden correcto (cada tabla depende de las anteriores). Hay **18**, y las aplicamos una por una con `alembic upgrade <nombre>`. Ejecuta los comandos **en este orden exacto**; cada uno crea una tabla:
+### Paso 3 — Ejecutar migraciones, una por una
+Las **migraciones** son scripts que crean las tablas de la base de dato en el orden correcto. La base de datos de este proyecto cuenta con 18 tablas, y paracrearlas una por una se utiliza `alembic upgrade <nombre>`. Ejecuta los comandos **en este orden exacto**; cada uno crea una tabla:
 
 | #  | Comando (revisión)                          | Tabla que crea          | Qué guarda                                            |
 | -- | ------------------------------------------- | ----------------------- | ---------------------------------------------------- |
@@ -132,7 +122,7 @@ Las **migraciones** son scripts que crean las tablas en el orden correcto (cada 
 
 Con el `(.venv)` activo y dentro de `API-server/`, ejecuta uno por uno:
 
-```powershell
+```
 alembic upgrade 0001_monedas
 alembic upgrade 0002_estados
 alembic upgrade 0003_intenciones
@@ -158,13 +148,12 @@ Qué esperar:
 - El nombre que va en el comando es el **identificador de la revisión**, no el del archivo. (Ojo con el #3: el comando es `0003_intenciones`, aunque el archivo se llame `0003_intenciones_de_compra_de_leads.py`.)
 - En cualquier momento puedes ver hasta dónde vas con `alembic current`, o la lista completa con `alembic history`.
 
-> **Atajo (opcional):** si prefieres aplicarlas todas de golpe en vez de una por una, basta `alembic upgrade head`. La forma de arriba (una por una) es la recomendada la primera vez para ver cómo se construye cada tabla.
+**Atajo opcional:** si prefieres aplicarlas todas de golpe en vez de una por una, basta `alembic upgrade head`. La forma de arriba (una por una) es la recomendada la primera vez para ver cómo se construye cada tabla.
 
-### Paso 4 — Llenar las tablas con datos (seeders)
+### Paso 4 — Poblar base de dato ejecutando los seeders
+Los **seeders** insertan los datos en las tablas. Es seguro repetir cualquiera de ellos porque no duplica datos.
 
-Los **seeders** insertan los datos. Es seguro repetir cualquiera de ellos (no duplica datos). Tienes **dos opciones**:
-
-```powershell
+```
 # Opción A — TODO: catálogos obligatorios + datos de ejemplo
 # (productos, clientes, una pre-orden). Recomendada para probar en local.
 python -m seeders.run_all
@@ -175,58 +164,45 @@ python -m seeders.run_all
 python -m seeders.seed_catalogs
 ```
 
-Para montar el entorno local con datos de prueba, usa la **Opción A**. La **Opción B** deja solo los
-catálogos mínimos (las tablas que el backend necesita sí o sí), igual que en producción.
+Para montar el entorno local con datos de prueba, usa la **Opción A**.
 
-Qué esperar con la **Opción A**: una lista de las 18 tablas, cada una marcada con `OK` y su número de filas, y al final:
+Para dejar solo los catálogos mínimos que el backend necesita sí o sí, igual que en producción, usa la **Opción B** .
 
+Qué esperar: una lista de las 18 tablas, cada una marcada con `OK` y su número de filas, y al final:
 ```
 Todas las 18 tablas pobladas correctamente.
 ```
 
 ### Paso 5 — Comprobar que todo quedó bien
-
-1. Confirma la última migración aplicada:
-   ```powershell
+1. Confirma la última migración aplicada: Debe mostrar `0018_pre_ordenes_productos (head)`.
+   ```
    alembic current
    ```
-   Debe mostrar `0018_pre_ordenes_productos (head)`.
-2. En phpMyAdmin, al hacer clic en la base `motomex`, deben aparecer **19 tablas**: las 18 del proyecto más una llamada `alembic_version` (es de control interno, es normal).
+2. En phpMyAdmin, al hacer clic en la base `motomex`, deben aparecer **19 tablas**: las 18 del proyecto más una llamada `alembic_version` que es de control interno.
 3. Revisión rápida de datos: abre la tabla `monedas` y verifica que tiene **MXN (100), USD (1700) y EUR (2300)**. Los precios y tipos de cambio se guardan **en centavos** (ej. `1700` = 17.00), así que se ven como números grandes a propósito.
 
-### Paso 6 — Empezar de cero (opcional)
-
 Si algo salió mal y quieres rehacer todo limpio:
-
-```powershell
+```
 alembic downgrade base
 ```
 
 Esto borra todas las tablas del proyecto (deja la base vacía). Para un reinicio total, elimina la base `motomex` desde phpMyAdmin y vuelve al **Paso 1**. (Nota: los seeders no borran datos; por eso, para empezar limpio, primero hay que vaciar la base.)
 
-### Paso 7 — Levantar el servidor y consultar el backend
-
-> Este paso asume que **todos los endpoints ya están implementados y funcionales** (la fase de controladores/routers del backend). Mientras solo exista `/health`, los ejemplos de `/productos`, `/leads`, etc. responderán "Not Found".
-
-**Arrancar la API.** Con el `(.venv)` activo y dentro de `API-server/`:
-
-```powershell
+### Paso 6 — Levantar servidor local y consultar el backend
+Arrancar la API con el `(.venv)` activo y dentro de `API-server/`:
+```
 uvicorn app.main:app --reload
 ```
 
 Esto enciende la API en **http://localhost:8000**. `--reload` hace que se reinicie sola al guardar cambios en el código. **Deja esta ventana de PowerShell abierta**: mientras siga abierta, el servidor está vivo (verás los registros de cada petición). Para apagarlo, pulsa **Ctrl + C** en esa ventana.
 
-**Comprobar que responde** (en el navegador):
-
+Comprueba que respondeen el navegador:
 - http://localhost:8000/health → debe devolver `{"status":"ok"}`. Confirma que el servidor está vivo.
 - http://localhost:8000/docs → **Swagger UI**. Es la forma **más fácil** de explorar la API sin escribir comandos: lista todos los endpoints y, con el botón **"Try it out"**, puedes mandar peticiones de prueba desde el navegador. **Empieza por aquí.**
 - http://localhost:8000/redoc → la misma documentación, en formato de solo lectura.
 
-**Consultas desde la terminal.** El navegador sirve para consultas de tipo `GET`; para todo (incluido crear datos) puedes usar PowerShell. **Importante:** el servidor del Paso 7 ocupa su propia ventana, así que abre **otra ventana de PowerShell** para estos comandos.
-
 Ejemplos de **lectura** (`GET`):
-
-```powershell
+```
 # Listar todos los productos
 Invoke-RestMethod http://localhost:8000/productos
 
@@ -245,7 +221,7 @@ Invoke-RestMethod "http://localhost:8000/leads?chat_whatsapp_id=521812345678"
 
 Ejemplo de **creación** (`POST` con cuerpo JSON) — registrar un nuevo cliente (lead):
 
-```powershell
+```
 $cuerpo = @'
 {
   "chat_whatsapp_id": "521812345678",
@@ -264,10 +240,12 @@ Invoke-RestMethod -Method Post -Uri http://localhost:8000/leads `
   -ContentType "application/json" -Body $cuerpo
 ```
 
-> Si prefieres `curl` (también disponible en Windows), el equivalente del primer GET es:
-> `curl http://localhost:8000/productos`
+Si prefieres `curl` (también disponible en Windows), el equivalente del primer GET es:
+```
+curl http://localhost:8000/productos
+```
 
-**Notas para no confundirse:**
+**Notas de lógica de negocio del proyecto:**
 
 - El **servidor** (Paso 7) y los comandos de consulta van en **ventanas separadas**: la del servidor queda "ocupada" mostrando registros.
 - Los **precios** en las respuestas vienen **en centavos**: `189900` significa $1,899.00. Quien consume la API (el chatbot) los convierte a pesos al mostrarlos.

@@ -32,5 +32,5 @@ class ChatResponse(BaseModel):
     id: int
     lead_id: int
     chat_whatsapp_id: str
-    status: str          # Tier 1 derivado: chat_status_id → chat_statuses.status
+    status: str
     resumen: str | None = None

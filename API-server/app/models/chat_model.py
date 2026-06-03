@@ -20,7 +20,6 @@ from app.core.mixins import TimestampMixin, _now
 from app.database import Base
 from app.models.chat_status_model import ChatStatusModel
 
-# Sentinela para distinguir "campo no provisto" de "provisto = None" en update (PATCH parcial).
 _UNSET = object()
 
 
@@ -37,8 +36,6 @@ class ChatModel(TimestampMixin, Base):
     resumen: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     chat_status: Mapped["ChatStatusModel"] = relationship(lazy="joined")
-
-    # ---- Métodos de la matriz -------------------------------------------------
 
     @classmethod
     def get_by_id(cls, db: Session, chat_id: int) -> "ChatModel | None":
@@ -113,6 +110,10 @@ class ChatModel(TimestampMixin, Base):
         """PATCH parcial. `lead_id` y `chat_whatsapp_id` son inmutables (no son parámetros).
         Solo actualiza los campos provistos. Refresca `updated_at`. Devuelve `None` si no existe
         o está soft-deleted (la traducción a `NotFoundError` vive en la capa service).
+
+        Los parámetros usan el centinela de módulo `_UNSET` para distinguir "campo no provisto"
+        de "provisto = None". Antes de `refresh` hace `flush` explícito (necesario porque `refresh`
+        descarta lo que aún no se ha flusheado).
         """
         chat = cls.get_by_id(db, chat_id)
         if chat is None:
@@ -124,7 +125,7 @@ class ChatModel(TimestampMixin, Base):
             chat.resumen = resumen
 
         chat.updated_at = _now()
-        db.flush()  # persiste los cambios antes de refresh (refresh descarta lo no flusheado)
+        db.flush()
         db.refresh(chat)
         return chat
 

@@ -18,13 +18,13 @@ class PreOrdenProductoCreate(BaseModel):
 
 class PreOrdenProductoResponse(BaseModel):
     producto_id: int
-    modelo: str          # derivado: producto.modelo
+    modelo: str
     cantidad: int
 
 
 class PreOrdenCreate(BaseModel):
     lead_id: int
-    total: int = Field(..., gt=0)                                    # MXN centavos
+    total: int = Field(..., gt=0)
     productos: list[PreOrdenProductoCreate] = Field(..., min_length=1)
 
 
@@ -33,5 +33,5 @@ class PreOrdenResponse(BaseModel):
 
     id: int
     lead_id: int
-    total: int                                                       # MXN centavos
+    total: int
     productos: list[PreOrdenProductoResponse]

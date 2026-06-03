@@ -11,6 +11,10 @@ los métodos devuelven la instancia ORM con relaciones cargadas):
 - `ciudad` (string) es find-or-fail; `productos_interes` [string] es find-or-fail por modelo
   (un modelo puede matchear varios → se persisten todas las relaciones); `vehiculo`
   [{modelo,marca,anio}] es find-or-create (cascada marca).
+- `telefono` se almacena en formato E.164 (`String(15)`).
+
+El centinela de módulo `_UNSET` distingue "campo no provisto" de "provisto = None" en `update`
+(PATCH parcial).
 """
 
 from datetime import datetime
@@ -25,7 +29,6 @@ from app.models.intencion_de_compra_de_lead_model import IntencionDeCompraDeLead
 from app.models.lead_producto_model import LeadProductoModel
 from app.models.lead_vehiculo_model import LeadVehiculoModel
 
-# Sentinela para distinguir "campo no provisto" de "provisto = None" en update (PATCH parcial).
 _UNSET = object()
 
 
@@ -35,7 +38,7 @@ class LeadModel(TimestampMixin, Base):
 
     chat_whatsapp_id: Mapped[str] = mapped_column(String(255), nullable=False)
     nombre_whatsapp: Mapped[str] = mapped_column(String(255), nullable=False)
-    telefono: Mapped[str] = mapped_column(String(15), nullable=False)  # E.164
+    telefono: Mapped[str] = mapped_column(String(15), nullable=False)
     nombre: Mapped[str | None] = mapped_column(String(255), nullable=True)
     ciudad_id: Mapped[int | None] = mapped_column(ForeignKey("ciudades.id"), nullable=True)
     direccion_envio: Mapped[str | None] = mapped_column(String(512), nullable=True)
@@ -59,8 +62,6 @@ class LeadModel(TimestampMixin, Base):
         viewonly=True,
         lazy="selectin",
     )
-
-    # ---- Métodos de la matriz -------------------------------------------------
 
     @classmethod
     def get_by_id(cls, db: Session, lead_id: int) -> "LeadModel | None":
@@ -102,6 +103,10 @@ class LeadModel(TimestampMixin, Base):
     ) -> "LeadModel":
         """Crea un lead. `ciudad` find-or-fail; `productos_interes` find-or-fail por modelo;
         `vehiculo` find-or-create. `created_at == updated_at`. Hace commit y devuelve el lead.
+
+        Hace `flush` de las filas de relación antes del `refresh` final: sin esto, con
+        autoflush=False, la carga selectin de `leads_productos`/`leads_vehiculos` leería las
+        tablas de relación aún vacías y la respuesta saldría con listas vacías.
         """
         ciudad_id = resolvers.find_ciudad_or_fail(db, ciudad).id if ciudad else None
         ts = _now()
@@ -122,9 +127,7 @@ class LeadModel(TimestampMixin, Base):
         cls._sync_productos_interes(db, lead.id, productos_interes, ts)
         cls._sync_vehiculos(db, lead.id, vehiculo, ts)
 
-        db.flush()  # persiste las filas de relación antes del refresh (igual que en update);
-        # sin esto, con autoflush=False, la carga selectin de leads_productos/leads_vehiculos
-        # leería las tablas de relación aún vacías y la respuesta saldría con listas vacías.
+        db.flush()
         db.refresh(lead)
         return lead
 
@@ -146,6 +149,8 @@ class LeadModel(TimestampMixin, Base):
         """PATCH parcial. `chat_whatsapp_id` es inmutable (no es parámetro). Refresca SOLO
         `updated_at`. Re-resuelve/reemplaza relaciones para los campos provistos. Devuelve `None`
         si el lead no existe o está soft-deleted (la traducción a `NotFoundError` vive en el service).
+
+        Antes de `refresh` hace `flush` explícito (`refresh` descarta lo aún no flusheado).
         """
         lead = cls.get_by_id(db, lead_id)
         if lead is None:
@@ -171,16 +176,14 @@ class LeadModel(TimestampMixin, Base):
             cls._sync_vehiculos(db, lead.id, vehiculo, ts, replace=True)
 
         lead.updated_at = ts
-        db.flush()  # persiste los cambios antes de refresh (refresh descarta lo no flusheado)
+        db.flush()
         db.refresh(lead)
         return lead
-
-    # ---- Helpers internos de relaciones --------------------------------------
 
     @staticmethod
     def _sync_link_rows(
         db: Session,
-        model: type,  # clase ORM de tabla de relación con columna lead_id (LeadProductoModel | LeadVehiculoModel)
+        model: type,
         lead_id: int,
         desired_ids: list[int],
         fk_name: str,
@@ -189,6 +192,8 @@ class LeadModel(TimestampMixin, Base):
     ) -> None:
         """Reconcilia filas de relación respetando soft-delete + UNIQUE(lead_id, fk).
 
+        `model` es la clase ORM de la tabla de relación con columna `lead_id`
+        (`LeadProductoModel` | `LeadVehiculoModel`). `desired_ids` se deduplica preservando orden.
         Reactiva filas soft-deleted que vuelven al conjunto deseado (evita violar el UNIQUE
         al re-insertar el mismo par), soft-elimina las que sobran (solo si replace=True) e
         inserta las nuevas. Nunca hard delete.
@@ -197,7 +202,7 @@ class LeadModel(TimestampMixin, Base):
             getattr(r, fk_name): r
             for r in db.scalars(select(model).where(model.lead_id == lead_id))
         }
-        desired = list(dict.fromkeys(desired_ids))  # dedupe preservando orden
+        desired = list(dict.fromkeys(desired_ids))
         for fk_id in desired:
             row = existing.get(fk_id)
             if row is None:
@@ -228,7 +233,7 @@ class LeadModel(TimestampMixin, Base):
         producto_ids = []
         for modelo in productos_interes:
             for prod in resolvers.find_productos_by_modelo_or_fail(db, modelo):
-                producto_ids.append(prod.id)  # puede haber más ids que strings (ambigüedad)
+                producto_ids.append(prod.id)
         cls._sync_link_rows(db, LeadProductoModel, lead_id, producto_ids, "producto_id", ts, replace)
 
     @classmethod

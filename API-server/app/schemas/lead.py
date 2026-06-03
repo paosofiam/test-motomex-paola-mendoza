@@ -24,11 +24,11 @@ class LeadCreate(BaseModel):
     nombre_whatsapp: str
     telefono: str = Field(..., pattern=r'^\+\d{1,14}$')
     intencion_de_compra_id: int
-    nombre: str | None = None            # nullable en DB
-    ciudad: str | None = None            # nullable en DB; find-or-fail si se envía
+    nombre: str | None = None
+    ciudad: str | None = None
     productos_interes: list[str] = Field(default_factory=list)
     vehiculo: list[VehiculoSchema] = Field(default_factory=list)
-    direccion_envio: str | None = None   # nullable en DB
+    direccion_envio: str | None = None
 
 
 class LeadUpdate(BaseModel):
@@ -46,14 +46,14 @@ class LeadResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    chat_id: int | None = None           # derivado: id del chat activo más reciente; None si no tiene
+    chat_id: int | None = None
     chat_whatsapp_id: str
     nombre_whatsapp: str
     telefono: str
-    nombre: str | None = None            # nullable en DB
-    ciudad: str | None = None            # nullable en DB
-    estado: str | None = None            # derivado de ciudad → estados; None si ciudad es None
+    nombre: str | None = None
+    ciudad: str | None = None
+    estado: str | None = None
     productos_interes: list[str] = Field(default_factory=list)
     vehiculo: list[VehiculoSchema] = Field(default_factory=list)
-    direccion_envio: str | None = None   # nullable en DB
-    intencion_de_compra: str             # derivado del FK NOT NULL → siempre presente
+    direccion_envio: str | None = None
+    intencion_de_compra: str

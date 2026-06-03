@@ -56,7 +56,7 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ResolutionError)
     async def _resolution(request: Request, exc: ResolutionError) -> JSONResponse:
         return _problem(
-            422,  # Unprocessable Content
+            422,
             "Validation failed",
             exc.detail,
             instance=request.url.path,
@@ -76,7 +76,7 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
     async def _validation(request: Request, exc: RequestValidationError) -> JSONResponse:
         return _problem(
-            422,  # Unprocessable Content
+            422,
             "Validation failed",
             "La petición no superó la validación de esquema",
             instance=request.url.path,

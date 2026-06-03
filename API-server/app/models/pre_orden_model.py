@@ -19,7 +19,7 @@ class PreOrdenModel(TimestampMixin, Base):
     __tablename__ = "pre_ordenes"
 
     lead_id: Mapped[int] = mapped_column(ForeignKey("leads.id"), nullable=False)
-    total: Mapped[int] = mapped_column(Integer, nullable=False)  # centavos, MXN
+    total: Mapped[int] = mapped_column(Integer, nullable=False)
 
     pre_orden_productos: Mapped[list["PreOrdenProductoModel"]] = relationship(
         primaryjoin=lambda: (PreOrdenModel.id == PreOrdenProductoModel.pre_orden_id)
@@ -28,8 +28,6 @@ class PreOrdenModel(TimestampMixin, Base):
         lazy="selectin",
     )
 
-    # ---- Métodos de la matriz -------------------------------------------------
-
     @classmethod
     def create(
         cls,
@@ -37,10 +35,11 @@ class PreOrdenModel(TimestampMixin, Base):
         *,
         lead_id: int,
         total: int,
-        productos: list[dict],  # [{"producto_id": int, "cantidad": int}]
+        productos: list[dict],
     ) -> "PreOrdenModel":
         """Crea una pre-orden con sus líneas de producto.
 
+        Cada ítem de `productos` es un dict `{"producto_id": int, "cantidad": int}`.
         Solo consulta/inserta en BD. La validación de existencia de `lead_id` y de cada
         `producto_id` vive en la capa service (`pre_orden_service.create`), que lanza
         `NotFoundError` antes de invocar este método.

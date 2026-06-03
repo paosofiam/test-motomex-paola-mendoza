@@ -14,12 +14,16 @@ def test_create_normalizes_value(db):
 
 
 def test_unique_on_normalized_value(db):
+    """El UNIQUE opera sobre el valor ya normalizado: "  nissan " colisiona con "Nissan"
+    y dispara IntegrityError."""
     MarcaModel.create(db, marca="Nissan")
     with pytest.raises(IntegrityError):
-        MarcaModel.create(db, marca="  nissan ")  # mismo valor normalizado
+        MarcaModel.create(db, marca="  nissan ")
 
 
 def test_find_or_create_is_idempotent(db):
+    """find-or-create es idempotente: dos variantes que normalizan al mismo valor devuelven
+    el mismo registro, sin duplicar."""
     a = resolvers.find_or_create_marca(db, "Nissan")
     b = resolvers.find_or_create_marca(db, "  NISSÁN ")
-    assert a.id == b.id  # no duplica
+    assert a.id == b.id
