@@ -1,6 +1,5 @@
-# Motomex API
-
-Backend REST en **FastAPI** para el chatbot de WhatsApp de Motomex. El consumidor principal es un agente LLM (n8n), por lo que las decisiones de diseño priorizan minimizar tokens y roundtrips.
+# Motomex API — Backend REST (FastAPI)
+Backend REST en **FastAPI** para el chatbot de WhatsApp de Motomex (en el flujo de n8n se implementó Telegram como canal equivalente e intercambiable con WhatsApp). El consumidor principal es un agente LLM (n8n), por lo que las decisiones de diseño priorizan minimizar tokens y roundtrips.
 
 - Base de datos: MySQL (XAMPP local, misma instancia que phpMyAdmin)
 - Arquitectura de capas: **router → service → model**
@@ -8,8 +7,26 @@ Backend REST en **FastAPI** para el chatbot de WhatsApp de Motomex. El consumido
 
 ---
 
-## Requisitos previos
+## Tabla de contenidos
+- [Requisitos previos](#requisitos-previos)
+- [Configuración inicial (primera vez)](#configuración-inicial-primera-vez)
+- [Iniciar el servidor](#iniciar-el-servidor)
+- [Sesiones siguientes](#sesiones-siguientes)
+- [Pruebas](#pruebas)
+- [Endpoints](#endpoints)
+  - [Productos](#productos)
+  - [Leads](#leads)
+  - [Chats](#chats)
+  - [Pre-órdenes](#pre-órdenes)
+- [Formato de respuestas](#formato-de-respuestas)
+- [Reglas de negocio clave](#reglas-de-negocio-clave)
+- [Estructura del proyecto](#estructura-del-proyecto)
+- [Variables de entorno](#variables-de-entorno)
+- [Despliegue en producción (Docker)](#despliegue-en-producción-docker)
 
+---
+
+## Requisitos previos
 - **Python 3.14** instalado y disponible vía `py -3.14` (Windows Python Launcher).
 - **XAMPP** corriendo con **MySQL** y **Apache** activos.
 - Base de datos `motomex` creada manualmente en phpMyAdmin con collation `utf8mb4_unicode_ci`.
@@ -18,7 +35,6 @@ Backend REST en **FastAPI** para el chatbot de WhatsApp de Motomex. El consumido
 ---
 
 ## Configuración inicial (primera vez)
-
 Desde `API-server/` en PowerShell:
 
 ```powershell
@@ -38,7 +54,6 @@ Copy-Item .env.example .env
 Edita `.env` si tus credenciales de MySQL difieren del default (`root` sin contraseña en `localhost:3306`). El `.env` no se versiona.
 
 ### Migraciones y seed
-
 ```powershell
 # Aplicar migraciones (crea/actualiza tablas)
 alembic upgrade head
@@ -50,7 +65,6 @@ python -m seeders.run_all
 ---
 
 ## Iniciar el servidor
-
 Con el venv activo y **desde `API-server/`**:
 
 ```powershell
@@ -69,8 +83,17 @@ El servidor queda disponible en:
 
 ---
 
-## Ejecutar los tests
+## Sesiones siguientes
+Con XAMPP corriendo, desde `API-server/`:
 
+```powershell
+.\.venv\Scripts\Activate.ps1
+uvicorn app.main:app --reload
+```
+
+---
+
+## Pruebas
 Los tests requieren una base de datos separada `motomex_test`. Créala en phpMyAdmin antes de correr los tests.
 
 ```powershell
@@ -78,6 +101,8 @@ Los tests requieren una base de datos separada `motomex_test`. Créala en phpMyA
 $env:TEST_DATABASE_URL = "mysql+pymysql://root:@127.0.0.1:3307/motomex_test"
 pytest
 ```
+
+> El puerto **3307** corresponde a la instancia de MySQL usada para tests, distinta del `3306` de desarrollo (XAMPP). Si tu MySQL de pruebas escucha en otro host o puerto, ajústalo en `TEST_DATABASE_URL`.
 
 La suite usa MySQL real (no mocks). El `conftest.py` crea y destruye las tablas automáticamente en cada sesión.
 
@@ -93,9 +118,7 @@ pytest -v                     # con output detallado
 ---
 
 ## Endpoints
-
 ### Productos
-
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
 | `GET` | `/productos` | Lista productos. Query params opcionales: `marca`, `precio_minimo` |
@@ -136,7 +159,6 @@ pytest -v                     # con output detallado
 ---
 
 ### Leads
-
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
 | `GET` | `/leads` | Lista leads. Query params: `chat_whatsapp_id`, `intencion_de_compra` |
@@ -164,7 +186,6 @@ pytest -v                     # con output detallado
 ---
 
 ### Chats
-
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
 | `GET` | `/chats` | Obtiene chat activo. Query param: `chat_whatsapp_id` |
@@ -178,7 +199,6 @@ pytest -v                     # con output detallado
 ---
 
 ### Pre-órdenes
-
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
 | `POST` | `/pre_ordenes` | Crea pre-orden |
@@ -197,9 +217,7 @@ pytest -v                     # con output detallado
 ---
 
 ## Formato de respuestas
-
 ### Éxito
-
 El body devuelve el recurso directamente, sin wrapper. El status HTTP es la única señal de éxito.
 
 - `POST` → `201 Created` + header `Location: /<recurso>/{id}` + body con el recurso
@@ -207,8 +225,7 @@ El body devuelve el recurso directamente, sin wrapper. El status HTTP es la úni
 - `DELETE` → `204 No Content` (sin body)
 
 ### Error — RFC 7807 Problem Details
-
-Todos los errores `4xx`/`5xx` usan `Content-Type: application/problem+json`:
+Todos los errores `4xx`/`5xx` usan `Content-Type: application/problem+json` ([RFC 7807](https://datatracker.ietf.org/doc/html/rfc7807)):
 
 ```json
 {
@@ -224,12 +241,10 @@ Todos los errores `4xx`/`5xx` usan `Content-Type: application/problem+json`:
 ---
 
 ## Reglas de negocio clave
-
 ### Dinero siempre en centavos enteros
 `precio`, `tipo_de_cambio` y `total` se almacenan como `int`. `12999` = $129.99. Nunca floats.
 
 ### Política de catálogos (Tier 1/2/3)
-
 | Tier | Catálogos | Body petición | Body respuesta |
 |------|-----------|---------------|----------------|
 | **1** — pequeños/estáticos | `monedas`, `chat_statuses`, `intenciones_de_compra_de_leads`, `estados` | `*_id` (int) | string |
@@ -237,7 +252,6 @@ Todos los errores `4xx`/`5xx` usan `Content-Type: application/problem+json`:
 | **3** — entidades dinámicas | `productos`, `leads`, `chats`, `pre_ordenes` | `id` (int) | objeto completo |
 
 ### Find-or-create vs find-or-fail
-
 - **Find-or-create:** `marca` y `vehiculos` en `POST /productos`; `vehiculo` en `POST/PATCH /leads`. La captura conversacional puede crear entidades nuevas en cascada.
 - **Find-or-fail:** todo lo demás. Si el string no resuelve, devuelve `422` con el campo y el valor recibido.
 - `leads.productos_interes[]`: find-or-fail por `modelo`. Si el modelo coincide con varios productos, se persiste la relación con todos.
@@ -248,8 +262,7 @@ Todo delete setea `deleted_at`; nunca hard-delete. Activo = `deleted_at IS NULL`
 ---
 
 ## Estructura del proyecto
-
-```
+```text
 API-server/
 ├── app/
 │   ├── main.py                # Instancia FastAPI, registro de routers y handlers
@@ -282,7 +295,6 @@ API-server/
 ---
 
 ## Variables de entorno
-
 | Variable | Default | Descripción |
 |----------|---------|-------------|
 | `DATABASE_URL` | `mysql+pymysql://root:@localhost:3306/motomex` | URL de conexión a MySQL |
@@ -292,11 +304,9 @@ API-server/
 ---
 
 ## Despliegue en producción (Docker)
-
 El backend está dockerizado para correr en cualquier servidor sin XAMPP. La imagen se construye a partir de los archivos `Dockerfile`, `docker-entrypoint.sh` y `.dockerignore` (el `docker-compose.yml` es **solo para pruebas locales** —levanta API + un MySQL de prueba juntos— y no se usa en el servidor).
 
 ### Configuración: variables de entorno, nunca `.env`
-
 En producción la configuración **no** se lee de `.env` (ese archivo es solo local y está excluido de git y de la imagen por `.gitignore` y `.dockerignore`). Define estas variables como **variables de entorno en tu plataforma de despliegue**:
 
 | Variable | Obligatoria | Ejemplo |
@@ -307,11 +317,9 @@ En producción la configuración **no** se lee de `.env` (ese archivo es solo lo
 > La nomenclatura completa de `DATABASE_URL` (qué es cada parte) está documentada como comentario al final de `.env`. Si la contraseña tiene caracteres especiales (`@ : / # ?`), URL-encodéalos.
 
 ### Migraciones automáticas
-
 Al arrancar, el contenedor ejecuta `docker-entrypoint.sh`, que corre `alembic upgrade head` **antes** de levantar el servidor. No hay paso manual de migraciones en el servidor; basta con que la BD exista y sea accesible vía `DATABASE_URL`.
 
 ### Despliegue en Hostinger con Coolify (alto nivel)
-
 [Coolify](https://coolify.io/) es un PaaS self-hosted (el mismo estilo del n8n que corre en el VPS). Pasos generales:
 
 1. **Base de datos:** crea un recurso **MySQL 8** en Coolify (collation `utf8mb4_unicode_ci`). Anota usuario, contraseña, host (el nombre interno del servicio) y el nombre de la BD (`motomex`).
@@ -322,14 +330,3 @@ Al arrancar, el contenedor ejecuta `docker-entrypoint.sh`, que corre `alembic up
 6. **n8n:** con el HTTPS activo, configura en el bot de n8n la URL pública (`https://<tu-dominio>`) como base para consumir la API.
 
 > En el servidor, MySQL es un recurso **aparte** gestionado por Coolify; por eso allí no se usa el `docker-compose.yml` de este repo.
-
----
-
-## Sesiones siguientes
-
-Con XAMPP corriendo, desde `API-server/`:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-uvicorn app.main:app --reload
-```
