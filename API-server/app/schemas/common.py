@@ -1,9 +1,11 @@
 """Schemas Pydantic compartidos entre recursos (DTOs).
 
 `VehiculoSchema` aplica la convención del contrato: un vehículo SIEMPRE viaja como objeto
-`{modelo, marca, anio}` en peticiones y respuestas (nunca un id opaco). `ProblemDetail` modela
-RFC 7807 y se usa para documentar las respuestas de error en OpenAPI (`responses=`); el body real
-lo construye `app/core/error_handlers.py`.
+`{modelo, marca, anio}` en peticiones y respuestas (nunca un id opaco). `CiudadEstadoSchema`
+transporta una ciudad junto a su estado `{ciudad, estado}`: el estado es necesario para crear
+la ciudad (la BD exige `ciudades.estado_id NOT NULL`) y la capa service lo resuelve a FK.
+`ProblemDetail` modela RFC 7807 y se usa para documentar las respuestas de error en OpenAPI
+(`responses=`); el body real lo construye `app/core/error_handlers.py`.
 """
 
 from pydantic import BaseModel
@@ -15,6 +17,13 @@ class VehiculoSchema(BaseModel):
     modelo: str
     marca: str
     anio: int
+
+
+class CiudadEstadoSchema(BaseModel):
+    """Ciudad como objeto `{ciudad, estado}`: el estado da contexto para resolver/crear la ciudad."""
+
+    ciudad: str
+    estado: str
 
 
 class ProblemDetail(BaseModel):

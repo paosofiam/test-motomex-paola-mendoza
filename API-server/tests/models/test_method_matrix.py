@@ -1,8 +1,9 @@
 """Matriz de métodos: cada modelo expone EXACTAMENTE los métodos permitidos (API-server/CLAUDE.md).
 
 Bloquea agregar métodos fuera de contrato y bloquea quitar los permitidos. La constante MATRIX
-reproduce la matriz EXACTA de API-server/CLAUDE.md (y contracts.md); en particular
-LeadModel.search respalda GET /leads.
+reproduce la matriz EXACTA de API-server/CLAUDE.md (y contracts.md): las entidades Tier 3
+(`productos`, `leads`, `chats`, `pre_ordenes`) son tablas ORM puras y exponen a lo sumo `get_by_id`
+(las queries filtradas, create/update/delete con lógica y la orquestación viven en `*_service.py`).
 """
 
 import pytest
@@ -31,25 +32,18 @@ def public_classmethods(cls):
 
 
 MATRIX = {
-    MonedaModel: {"get_all", "get_by_id", "create"},
+    MonedaModel: {"get_by_id"},
     EstadoModel: set(),
-    ChatStatusModel: {"get_all", "get_by_id"},
-    IntencionDeCompraDeLeadModel: {"get_all", "get_by_id", "create"},
-    MarcaModel: {"get_all", "get_by_id", "create"},
-    CategoriaModel: {"get_all", "get_by_id", "create"},
-    CiudadModel: {"get_all", "get_by_id", "create"},
-    VehiculoModel: {"get_all", "get_by_id", "create"},
-    ProductoModel: {"get_all", "get_by_id", "search", "create", "delete"},
-    LeadModel: {"get_by_id", "search", "create", "update"},
-    ChatModel: {
-        "get_by_id",
-        "get_by_chat_whatsapp_id",
-        "get_by_lead",
-        "create",
-        "update",
-        "delete",
-    },
-    PreOrdenModel: {"create"},
+    ChatStatusModel: {"get_by_id"},
+    IntencionDeCompraDeLeadModel: {"get_by_id"},
+    MarcaModel: {"get_by_id"},
+    CategoriaModel: {"get_by_id"},
+    CiudadModel: {"get_by_id"},
+    VehiculoModel: {"get_by_id"},
+    ProductoModel: {"get_by_id"},
+    LeadModel: {"get_by_id"},
+    ChatModel: {"get_by_id"},
+    PreOrdenModel: set(),
 }
 
 

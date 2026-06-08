@@ -1,9 +1,10 @@
 """Router del recurso leads: frontera HTTP (sin lógica de negocio).
 
 Declara rutas, valida petición/respuesta con Pydantic, fija status HTTP y header `Location`, y
-documenta errores RFC 7807. La lógica (find-or-fail de `ciudad`/`productos_interes`, find-or-create
-de `vehiculo`, derivación de `estado` y `chat_id`, persistencia) vive en `services/lead_service.py`.
-Las excepciones de dominio que suban se traducen a `application/problem+json` vía los handlers.
+documenta errores RFC 7807. La lógica (resolución con éxito parcial de `ciudad` y `productos_interes`
+—find-or-skip aditivo—, find-or-create de `vehiculo`, derivación de `estado` y `chat_id`,
+persistencia) vive en `services/lead_service.py`. Las excepciones de dominio que suban se traducen a
+`application/problem+json` vía los handlers.
 """
 
 from typing import Any
@@ -11,6 +12,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
+from app.core.error_handlers import warning_header
 from app.database import get_db
 from app.schemas.common import ProblemDetail
 from app.schemas.lead import LeadCreate, LeadResponse, LeadUpdate
@@ -42,9 +44,14 @@ def create_lead(
     response: Response,
     db: Session = Depends(get_db),
 ) -> Any:
-    """Crea un lead. Devuelve 201 + header `Location`. 422 si un string Tier 2 no resuelve."""
-    lead = lead_service.create(db, payload)
+    """Crea un lead. Devuelve 201 + header `Location`. 422 solo si `intencion_de_compra_id` (Tier 1)
+    no resuelve o el `telefono` no es E.164. La ciudad (estado no reconocido) o los productos de interés
+    (modelo inexistente en inventario) que no se pudieron vincular se informan en el header `Warning`;
+    el lead se crea igual."""
+    lead, avisos = lead_service.create(db, payload)
     response.headers["Location"] = f"/leads/{lead.id}"
+    if avisos:
+        response.headers["Warning"] = warning_header(avisos)
     return lead
 
 
@@ -66,7 +73,14 @@ def read_lead(lead_id: int, db: Session = Depends(get_db)) -> Any:
 def update_lead(
     lead_id: int,
     payload: LeadUpdate,
+    response: Response,
     db: Session = Depends(get_db),
 ) -> Any:
-    """Actualización parcial de un lead. Devuelve el lead completo actualizado (200)."""
-    return lead_service.update(db, lead_id, payload)
+    """Actualización parcial de un lead. Devuelve el lead completo actualizado (200). `productos_interes`
+    y `vehiculo` se vinculan de forma aditiva (combinan con lo existente; vacío/omitido = sin cambios).
+    La ciudad (estado no reconocido) o los productos de interés (modelo inexistente) que no se pudieron
+    vincular se informan en el header `Warning`."""
+    lead, avisos = lead_service.update(db, lead_id, payload)
+    if avisos:
+        response.headers["Warning"] = warning_header(avisos)
+    return lead

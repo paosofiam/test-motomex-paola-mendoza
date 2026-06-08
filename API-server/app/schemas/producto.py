@@ -1,13 +1,16 @@
 """DTOs del recurso productos.
 
 `ProductoCreate` refleja el body de `POST /productos` (`endpoints.md`): catálogos Tier 2 como
-strings (`marca`, `categorias`, `ciudades`) y vehículos como objetos, todos resueltos en la
-capa service (`producto_service.py`). `marca`, `vehiculos` y `categorias` son find-or-create; `ciudades` es
-find-or-fail (el payload no lleva estado y la BD exige `estado_id NOT NULL`). `moneda_id`
+strings (`marca`, `categorias`) y vehículos/ciudades como objetos, todos resueltos en la capa
+service (`producto_service.py`). `marca`, `vehiculos` y `categorias` son find-or-create; cada
+ciudad viaja como `{ciudad, estado}` y se resuelve con éxito parcial: si el estado no existe, el
+producto se crea igual omitiendo esa ciudad (el aviso viaja en el header `Warning`). `moneda_id`
 es Tier 1 (viaja por id, default 1 = MXN).
 
-`ProductoResponse` devuelve `precio` ya convertido a MXN (centavos) y `moneda` como string,
-conforme a la regla de conversión de moneda en respuestas.
+`ProductoResponse` representa el recurso completo creado: además de los campos propios, incluye
+`vehiculos`, `categorias` y `ciudades` ya persistidos (las ciudades reflejan lo realmente
+guardado). `precio` viene convertido a MXN (centavos) y `moneda` como string, conforme a la regla
+de conversión de moneda en respuestas.
 
 Dinero siempre como entero en **centavos** (nunca float): en `ProductoCreate`, `precio` va en la
 moneda original (`moneda_id`, default 1 = MXN); en `ProductoResponse`, `precio` ya viene en MXN
@@ -18,7 +21,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.common import VehiculoSchema
+from app.schemas.common import CiudadEstadoSchema, VehiculoSchema
 
 
 class ProductoCreate(BaseModel):
@@ -30,7 +33,7 @@ class ProductoCreate(BaseModel):
     especificaciones: dict[str, Any] | None = None
     vehiculos: list[VehiculoSchema] = Field(default_factory=list)
     categorias: list[str] = Field(default_factory=list)
-    ciudades: list[str] = Field(default_factory=list)
+    ciudades: list[CiudadEstadoSchema] = Field(default_factory=list)
 
 
 class ProductoResponse(BaseModel):
@@ -43,3 +46,6 @@ class ProductoResponse(BaseModel):
     moneda: str
     stock: int
     especificaciones: dict[str, Any] | None = None
+    vehiculos: list[VehiculoSchema] = Field(default_factory=list)
+    categorias: list[str] = Field(default_factory=list)
+    ciudades: list[CiudadEstadoSchema] = Field(default_factory=list)

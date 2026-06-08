@@ -24,16 +24,15 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import Session
 
+from app.core import resolvers
 from app.database import Base, get_db
 from app.main import app as fastapi_app
 import app.models  # noqa: F401
-from app.core.mixins import _now
-from app.models.ciudad_model import CiudadModel
 from app.models.estado_model import EstadoModel
-from seeders import catalog_defaults
+from seeders import catalog_defaults, estados
 
 TEST_URL = os.environ.get("TEST_DATABASE_URL", "sqlite+pysqlite:///:memory:")
 
@@ -92,22 +91,23 @@ def client(db):
 
 @pytest.fixture
 def seed_catalogs(db):
-    """Catálogos Tier 1 con ids exactos (vía seeder) + un estado y ciudad de apoyo.
+    """Catálogos Tier 1 con ids exactos (vía seeder) + las 32 entidades y una ciudad de apoyo.
 
-    El seeder puebla monedas 1-3, intenciones 1-4 y chat_statuses 1-5. Devuelve los ids/strings
-    que necesitan los tests de leads/productos/chats; `ciudad_nombre` viaja ya normalizado.
+    Puebla monedas 1-3, intenciones 1-4, chat_statuses 1-5 y las 32 entidades federativas (con
+    `abreviacion`, vía `seeders.estados`), de modo que los tests puedan resolver estados por nombre
+    o abreviación y crear ciudades bajo cualquier estado. Crea la ciudad de apoyo "Guadalajara" bajo
+    Jalisco. Devuelve los ids/strings que necesitan los tests; `ciudad_nombre` viaja ya normalizado.
     """
     catalog_defaults.seed(db)
+    estados.seed(db)
 
-    ts = _now()
-    estado = EstadoModel(estado="Jalisco", created_at=ts, updated_at=ts)
-    db.add(estado)
-    db.flush()
-    ciudad = CiudadModel.create(db, ciudad="Guadalajara", estado_id=estado.id)
+    jalisco = db.scalar(select(EstadoModel).where(EstadoModel.estado == "Jalisco"))
+    ciudad = resolvers.find_or_create_ciudad(db, "Guadalajara", jalisco.id)
 
     return SimpleNamespace(
-        estado_id=estado.id,
+        estado_id=jalisco.id,
         estado_nombre="Jalisco",
+        estado_abreviacion="JAL",
         ciudad_id=ciudad.id,
         ciudad_nombre="guadalajara",
         moneda_mxn_id=1,

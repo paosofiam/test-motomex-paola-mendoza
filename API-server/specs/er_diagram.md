@@ -79,6 +79,7 @@ erDiagram
 
     ESTADOS {
         string estado
+        string abreviacion "nullable; resolución por sigla (p.ej. 'NL')"
     }
 
     INTENCIONES_DE_COMPRA_DE_LEADS {
@@ -201,6 +202,7 @@ A continuación se especifican las tablas de la base de datos. Todas heredan las
 	- estado: FK, int
 - estados
 	- estado: string
+	- abreviacion: string | null
 - intenciones_de_compra_de_leads
 	- tipo: string
 - categorias
@@ -262,6 +264,29 @@ Las siguientes tablas deberán ser pobladas necesaria y estrictamente con los va
 | 4 | con cliente |
 | 5 | cerrado |
 
+**estados**
+
+Catálogo fijo: las **32 entidades federativas de México**, cada una con su `abreviacion`. Se siembran de forma idempotente **por nombre** (sin ids fijos; autoincrement) y la `abreviacion` se rellena si faltara. Se resuelven por nombre o abreviación (normalizados) al crear ciudades.
+
+| estado | abreviacion | estado | abreviacion |
+| --- | --- | --- | --- |
+| Aguascalientes | AGS | Morelos | MOR |
+| Baja California | BC | Nayarit | NAY |
+| Baja California Sur | BCS | Nuevo León | NL |
+| Campeche | CAMP | Oaxaca | OAX |
+| Chiapas | CHIS | Puebla | PUE |
+| Chihuahua | CHIH | Querétaro | QRO |
+| Ciudad de México | CDMX | Quintana Roo | QROO |
+| Coahuila | COAH | San Luis Potosí | SLP |
+| Colima | COL | Sinaloa | SIN |
+| Durango | DGO | Sonora | SON |
+| Estado de México | EDOMEX | Tabasco | TAB |
+| Guanajuato | GTO | Tamaulipas | TAMPS |
+| Guerrero | GRO | Tlaxcala | TLAX |
+| Hidalgo | HGO | Veracruz | VER |
+| Jalisco | JAL | Yucatán | YUC |
+| Michoacán | MICH | Zacatecas | ZAC |
+
 ## Seeders
 
 Las siguientes tablas se poblarán con valores aleatorios. Los valores a continuación son ejemplos de referencia:
@@ -311,7 +336,18 @@ Las siguientes tablas se poblarán con valores aleatorios. Los valores a continu
 
 ## Observaciones de revisión
 
-Durante la revisión cruzada entre la sección de Base de datos y la sección de Endpoints de `contracts.md` se detectaron las siguientes inconsistencias y mejoras recomendadas. **No están aplicadas en este diagrama ni en las tablas de arriba**; quedan para tu decisión.
+Durante la revisión cruzada entre la sección de Base de datos y la sección de Endpoints de `contracts.md` se detectaron las siguientes inconsistencias y mejoras recomendadas. **Todas están ya resueltas o implementadas** en el código actual (las decisiones canónicas viven en `API-server/CLAUDE.md`); se conservan aquí como bitácora:
+
+- **#1 FKs `_id`**: resuelto. El storage real usa `<entidad>_id` (`marca_id`, `moneda_id`, `ciudad_id`, `estado_id`, …); el diagrama y la lista de entidades muestran el nombre de dominio sin sufijo solo por convención de lectura del diagrama.
+- **#2 `productos.moneda`**: resuelto → `moneda_id: FK int NOT NULL DEFAULT 1`; la respuesta devuelve `"moneda": "MXN"` (string por join).
+- **#3 `pre_ordenes.total` en MXN**: resuelto → `total` se persiste en MXN ya convertido; no hay `pre_ordenes.moneda_id`.
+- **#4 `Lead.chat_id` derivado** y **#6 `leads.estado` derivado**: confirmados → ambos son campos de respuesta calculados, no columnas (no existen `leads.chat_id` ni `leads.estado`/`estado_id`).
+- **#5 `productos_interes` multi-match**: confirmado → find-or-skip **aditivo** por `modelo` (un modelo sin match en inventario se omite con aviso en header `Warning`, el lead se crea/edita igual; en `PATCH` combina con lo existente, no reemplaza); persiste todas las coincidencias en `leads_productos`.
+- **#7 Índices**: implementados (índice en `leads.chat_whatsapp_id` y `chats.chat_whatsapp_id`, compuesto `chats (lead_id, created_at)`, UNIQUEs naturales en catálogos Tier 2, UNIQUE compuesto `vehiculos (modelo, marca_id, anio)`, UNIQUEs `(fk1, fk2)` en tablas de relación).
+- **#8 Filtros en `GET /productos`**: implementado → el endpoint filtra por `categoria`, `ciudad`, `estado`, `vehiculo_modelo`/`vehiculo_marca`/`vehiculo_anio`, precio/stock/especificaciones, con orden y paginación (la lógica vive en `producto_service.search`).
+- **#9 `PATCH /chats` inmutable**: confirmado → solo actualiza `chat_status_id` y `resumen`; `lead_id` y `chat_whatsapp_id` son inmutables.
+
+Detalle original de cada observación (bitácora):
 
 1. **Nombrado inconsistente de columnas FK entre tablas y endpoints**. La sección de entidades declara FKs sin sufijo (`marca`, `moneda`, `ciudad`, `intencion_de_compra`, `estado`), mientras que los bodies de endpoints las envían con sufijo `_id` (`moneda_id`, `intencion_de_compra_id`, `chat_status_id`, `lead_id`). Recomendación: unificar el nombrado a `<entidad>_id` en las tablas para que coincida con la convención de los endpoints y con el estándar SQL. Beneficio: SQLAlchemy mapea automáticamente sin renombramientos, y las queries se vuelven legibles sin tener que inferir tipo desde el nombre.
 
@@ -321,7 +357,7 @@ Durante la revisión cruzada entre la sección de Base de datos y la sección de
 
 4. **`Lead.chat_id` en la respuesta del endpoint NO es una columna de la tabla `leads`**. Es un campo derivado/calculado: el `id` del chat activo más reciente del lead (consistente con la regla "1 chat activo por lead"). El modelo `LeadModel` debe resolverlo vía join a `chats` con `created_at DESC LIMIT 1` y `deleted_at IS NULL`. Importante no confundirlo con una FK adicional en `leads`.
 
-5. **`leads.productos_interes[]` en respuestas y bodies vs tabla `leads_productos`**. El campo aparece en las respuestas como `[string]` (modelos de producto) y se persiste en la tabla intermedia `leads_productos` (FK a `productos.id`). La política documentada es find-or-fail por `productos.modelo`; si la búsqueda retorna múltiples productos (ambigüedad de catálogo), se persiste la relación con todos los matches. Esto significa que `leads_productos` puede tener más filas que strings recibidos en el body. Importante reflejarlo en el modelo `LeadModel.create/update`.
+5. **`leads.productos_interes[]` en respuestas y bodies vs tabla `leads_productos`**. El campo aparece en las respuestas como `[string]` (modelos de producto) y se persiste en la tabla intermedia `leads_productos` (FK a `productos.id`). La política documentada es find-or-skip **aditivo** por `productos.modelo`: un modelo que no exista en inventario no falla (no se crea producto, pero tampoco se rechaza el lead) — se omite y se reporta vía header `Warning` (éxito parcial, como ciudades); si la búsqueda retorna múltiples productos (ambigüedad de catálogo), se persiste la relación con todos los matches. En `PATCH` la vinculación es aditiva (combina con lo existente, nunca reemplaza ni borra; body vacío/omitido = sin cambios). Esto significa que `leads_productos` puede tener más filas que strings recibidos en el body. La orquestación vive en `lead_service.create/update` + `resolvers.resolver_productos_interes`.
 
 6. **`leads.estado` derivado, no almacenado**. El endpoint dice que `estado` no se acepta en bodies de `/leads` porque se deriva de `ciudades → estados`. Por tanto, no hay (ni debe haber) columna `estado` ni `estado_id` en la tabla `leads`; el join transitivo `leads.ciudad → ciudades.estado → estados.estado` resuelve el campo de respuesta. Ya está reflejado correctamente en el diagrama.
 

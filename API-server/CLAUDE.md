@@ -15,7 +15,7 @@ Para construir una capa, invoca la skill correspondiente:
 4. **`leads` NO tiene columna `chat_id` ni `estado`/`estado_id`.** Ambos son campos **derivados de respuesta**:
    - `chat_id` = id del chat activo más reciente del lead (`chats` join `WHERE lead_id=? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`).
    - `estado` = join transitivo `leads.ciudad_id → ciudades.estado_id → estados.estado`.
-5. **`leads.productos_interes[]`**: find-or-fail por `productos.modelo`. Si un modelo matchea varios productos, se persiste la relación en `leads_productos` con **todos** los matches → `leads_productos` puede tener más filas que strings recibidos.
+5. **`leads.productos_interes[]`**: find-or-skip **aditivo** por `productos.modelo`. El lead SIEMPRE se crea/edita: un modelo que no existe en inventario **no** falla (no es find-or-fail ni find-or-create: el inventario no se inventa por interés del cliente), se **omite** y se reporta como aviso en el header `Warning` (mismo patrón de éxito parcial que `ciudades`). Si un modelo matchea varios productos, se persiste la relación en `leads_productos` con **todos** los matches → `leads_productos` puede tener más filas que strings recibidos. En `PATCH` la vinculación es **aditiva** (combina con lo existente, nunca reemplaza ni borra; body vacío/omitido = sin cambios; no hay remoción vía API). Misma semántica aditiva aplica a `leads.vehiculo[]`.
 6. **`chats` inmutables tras crear**: `PATCH /chats/{id}` solo toca `chat_status_id` y `resumen`. `lead_id` y `chat_whatsapp_id` nunca se actualizan (valídalo a nivel ORM/schema).
 7. **Índices obligatorios** (créalos en la migración):
    - `leads.chat_whatsapp_id`, `chats.chat_whatsapp_id` (búsqueda directa).
@@ -38,27 +38,43 @@ Para construir una capa, invoca la skill correspondiente:
 
 ## Matriz de métodos (NO agregar métodos fuera de esta lista)
 
+**TODOS los modelos son tablas ORM puras** (columnas + relationships) y exponen **a lo sumo
+`get_by_id`** (lookup por PK + `deleted_at IS NULL`). El filtrado (`search`, lookups con
+`ORDER BY`/`LIMIT`), las escrituras con lógica (`create`/`update`/`delete`), el find-or-create de
+catálogos y la orquestación multi-entidad viven en `*_service.py` y `core/resolvers.py`. Esto sigue
+la práctica estándar de FastAPI (las operaciones de datos son funciones que reciben `Session`, no
+métodos del modelo ORM). Patrón: **router → service (queries/escritura/orquestación) → model (tabla
+pura) + core/resolvers (helpers compartidos: find-or-create, `sync_link_rows`, `find_estado`)**. El
+precedente es `producto`.
+
 | Modelo | Métodos permitidos |
 | --- | --- |
-| `ProductoModel` | `get_all`, `get_by_id`, `search`, `create`, `delete` |
-| `LeadModel` | `get_by_id`, `search`, `create`, `update` |
-| `ChatModel` | `get_by_id`, `get_by_chat_whatsapp_id`, `get_by_lead`, `create`, `update`, `delete` |
-| `VehiculoModel` | `get_all`, `get_by_id`, `create` |
-| `MarcaModel` | `get_all`, `get_by_id`, `create` |
-| `MonedaModel` | `get_all`, `get_by_id`, `create` |
-| `CiudadModel` | `get_all`, `get_by_id`, `create` |
-| `IntencionDeCompraDeLeadModel` | `get_all`, `get_by_id`, `create` |
-| `CategoriaModel` | `get_all`, `get_by_id`, `create` |
-| `ChatStatusModel` | `get_all`, `get_by_id` |
-| `PreOrdenModel` | `create` |
+| `ProductoModel` | `get_by_id` |
+| `LeadModel` | `get_by_id` |
+| `ChatModel` | `get_by_id` |
+| `PreOrdenModel` | — (sin métodos) |
+| `VehiculoModel` | `get_by_id` |
+| `MarcaModel` | `get_by_id` |
+| `MonedaModel` | `get_by_id` |
+| `CiudadModel` | `get_by_id` |
+| `IntencionDeCompraDeLeadModel` | `get_by_id` |
+| `CategoriaModel` | `get_by_id` |
+| `ChatStatusModel` | `get_by_id` |
 
-`ProductoModel` **no** tiene `update`. `ChatStatusModel` **no** tiene `create` (Tier 1 estático poblado por seeder). `PreOrdenModel` **solo** `create`. `LeadModel.search` respalda `GET /leads` (filtros por `chat_whatsapp_id`/`intencion_de_compra`).
+`EstadoModel` no tiene ni `get_by_id` (se resuelve por `resolvers.find_estado`, por nombre o
+abreviación). Equivalencias service (antes método de modelo): `ProductoModel.search`/`create`/`delete`
+→ `producto_service`; `LeadModel.search`/`create`/`update` → `lead_service` (`lead_service.search`
+respalda `GET /leads`); `ChatModel.get_by_chat_whatsapp_id`/`get_by_lead`/`create`/`update`/`delete`
+→ `chat_service` (el chat activo más reciente con `ORDER BY created_at DESC LIMIT 1`; un solo chat
+activo por lead); `PreOrdenModel.create` → `pre_orden_service`; el `create` de cada catálogo Tier 2 →
+`resolvers.find_or_create_*` (normaliza), y los Tier 1 crecen solo por seeder. La reconciliación
+genérica de tablas de relación vive en `resolvers.sync_link_rows`.
 
 ## Clasificación Tier (catálogos)
 
 - **Tier 1** (id en body → string en respuesta): `monedas`, `chat_statuses`, `intenciones_de_compra_de_leads`, `estados`.
 - **Tier 2** (string ↔ string, API normaliza y resuelve a FK): `marcas`, `categorias`, `ciudades`, `vehiculos`.
-- **Tier 3** (por `id`, respuesta incluye campos legibles): `productos`, `leads`, `chats`, `pre_ordenes`. Excepción: `leads.productos_interes[]` viaja como `[string]` (modelo) con find-or-fail.
+- **Tier 3** (por `id`, respuesta incluye campos legibles): `productos`, `leads`, `chats`, `pre_ordenes`. Excepción: `leads.productos_interes[]` viaja como `[string]` (modelo) con find-or-skip aditivo (ver invariante #5: los modelos sin match se omiten con aviso, el lead se crea igual).
 
 ## Convenciones de nombres (de contracts.md)
 

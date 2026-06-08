@@ -19,11 +19,26 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from unidecode import unidecode
 
 from app.core.exceptions import NotFoundError, ResolutionError
 
 PROBLEM_JSON = "application/problem+json"
 _ERROR_TYPE_BASE = "https://api.example.com/errors/"
+
+
+def warning_header(avisos: list[str]) -> str:
+    """Valor del header `Warning` (RFC 7234, código 199 "Miscellaneous warning") para avisos no fatales.
+
+    Permite que una respuesta de éxito (201/200) lleve el recurso limpio en el body (REST sin
+    wrapper) y comunique aparte que algo no esencial no se guardó (p. ej. una ciudad con estado no
+    reconocido). Varios avisos se concatenan en un único warning-text entre comillas.
+
+    El valor se transcribe a ASCII con `unidecode`: los headers HTTP deben ser ASCII/latin-1 y los
+    nombres de ciudad/estado mexicanos suelen llevar acentos (p. ej. "Mérida", "Nuevo León"), que de
+    otro modo producirían bytes no-ASCII y romperían clientes que decodifican el header como UTF-8.
+    """
+    return unidecode('199 - "' + "; ".join(avisos) + '"')
 
 
 def _problem(

@@ -9,7 +9,7 @@ Idempotente: re-ejecutar no duplica filas.
 
 import app.models  # noqa: F401  -- registra todas las tablas/relaciones
 from app.database import Base, SessionLocal
-from seeders import catalog_defaults, sample_data
+from seeders import catalog_defaults, estados, sample_data
 
 # Orden de reporte (FK-safe / legible)
 TABLA_ORDEN = [
@@ -36,6 +36,7 @@ def main() -> None:
     try:
         print(">> Sembrando catálogos Tier 1 (valores exactos)...")
         catalog_defaults.seed(db)
+        estados.seed(db)
         print(">> Sembrando datos de ejemplo (productos/leads vía modelos funcionales)...")
         sample_data.seed(db)
 

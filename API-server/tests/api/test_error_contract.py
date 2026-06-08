@@ -29,15 +29,16 @@ def test_not_found_problem_shape(client, seed_catalogs):
 
 
 def test_resolution_error_problem_shape_has_field(client, seed_catalogs):
-    r = client.post("/productos", json=_producto(ciudades=["Atlantis"]))
+    """Una resolución que falla (aquí `moneda_id` Tier 1 inexistente) → 422 con `field`/`value_received`."""
+    r = client.post("/productos", json=_producto(moneda_id=99999))
     assert r.status_code == 422
     assert r.headers["content-type"].startswith("application/problem+json")
     body = r.json()
     assert body["status"] == 422
     assert body["title"] == "Validation failed"
     assert body["type"] == "https://api.example.com/errors/validation-failed"
-    assert body["field"] == "ciudades"
-    assert body["value_received"] == "Atlantis"
+    assert body["field"] == "moneda_id"
+    assert body["value_received"] == 99999
 
 
 def test_schema_validation_problem_shape_has_errors(client, seed_catalogs):

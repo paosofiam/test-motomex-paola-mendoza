@@ -1,14 +1,16 @@
 """Endpoints /leads (capa API, TestClient): POST/GET/GET{id}/PATCH.
 
-Cubre find-or-fail de `ciudad` y `productos_interes` (multi-match), find-or-create de `vehiculo`,
-campos derivados en la respuesta (`estado`, `chat_id`, `intencion_de_compra` como string Tier 1),
-validación E.164 y la política `extra="ignore"` para `estado`/`chat_whatsapp_id`.
+Cubre `ciudad` como objeto `{ciudad, estado}` con find-or-create y éxito parcial (estado no
+reconocido → lead sin ciudad + header `Warning`), find-or-skip aditivo de `productos_interes`
+(multi-match; modelo inexistente → lead sin ese producto + header `Warning`; PATCH aditivo),
+find-or-create de `vehiculo`, campos derivados en la respuesta (`estado`, `chat_id`,
+`intencion_de_compra` como string Tier 1), validación E.164 y la política `extra="ignore"`.
 """
 
 from sqlalchemy import func, select
 
 from app.models.lead_producto_model import LeadProductoModel
-from app.models.producto_model import ProductoModel
+from tests.factories import make_producto
 
 
 def _payload(**over):
@@ -28,7 +30,7 @@ def test_post_creates_with_location_and_derived_fields(client, seed_catalogs):
     `intencion_de_compra` es Tier 1: la respuesta devuelve el string.
     `chat_id` es derivado: None mientras el lead no tenga chat activo.
     """
-    r = client.post("/leads", json=_payload(ciudad="Guadalajara"))
+    r = client.post("/leads", json=_payload(ciudad={"ciudad": "Guadalajara", "estado": "Jalisco"}))
     assert r.status_code == 201
     body = r.json()
     assert r.headers["location"] == f"/leads/{body['id']}"
@@ -38,12 +40,25 @@ def test_post_creates_with_location_and_derived_fields(client, seed_catalogs):
     assert body["chat_id"] is None
 
 
-def test_post_unknown_city_is_find_or_fail(client, seed_catalogs):
-    r = client.post("/leads", json=_payload(ciudad="Tijuana"))
-    assert r.status_code == 422
-    assert r.headers["content-type"].startswith("application/problem+json")
-    assert r.json()["field"] == "ciudad"
-    assert r.json()["value_received"] == "Tijuana"
+def test_post_unknown_estado_is_partial_success(client, seed_catalogs):
+    """`ciudad` es find-or-create con éxito parcial: si el estado no se reconoce (ni por nombre ni
+    por abreviación), el lead se crea igual SIN ciudad y el aviso viaja en el header `Warning`."""
+    r = client.post("/leads", json=_payload(ciudad={"ciudad": "Tijuana", "estado": "Atlantis"}))
+    assert r.status_code == 201
+    body = r.json()
+    assert body["ciudad"] is None
+    assert body["estado"] is None
+    assert "warning" in {k.lower() for k in r.headers} and "Tijuana" in r.headers["warning"]
+
+
+def test_post_creates_new_city_under_known_estado(client, seed_catalogs):
+    """find-or-create: una ciudad nueva bajo un estado existente (por nombre) se crea y se vincula."""
+    r = client.post("/leads", json=_payload(ciudad={"ciudad": "Zapopan", "estado": "Jalisco"}))
+    assert r.status_code == 201
+    body = r.json()
+    assert body["ciudad"] == "zapopan"
+    assert body["estado"] == "Jalisco"
+    assert "warning" not in {k.lower() for k in r.headers}
 
 
 def test_post_vehiculo_travels_as_object(client, seed_catalogs):
@@ -54,9 +69,9 @@ def test_post_vehiculo_travels_as_object(client, seed_catalogs):
 
 
 def test_post_productos_interes_multimatch_persists_all(client, seed_catalogs, db):
-    """`productos_interes` es find-or-fail por modelo: un modelo que matchea dos productos persiste dos filas en leads_productos."""
-    ProductoModel.create(db, marca="Bosch", modelo="Balata X", precio=100)
-    ProductoModel.create(db, marca="ATE", modelo="Balata X", precio=200)
+    """`productos_interes` es find-or-skip aditivo por modelo: un modelo que matchea dos productos persiste dos filas en leads_productos."""
+    make_producto(db, marca="Bosch", modelo="Balata X", precio=100)
+    make_producto(db, marca="ATE", modelo="Balata X", precio=200)
     r = client.post("/leads", json=_payload(productos_interes=["Balata X"]))
     assert r.status_code == 201
     lead_id = r.json()["id"]
@@ -66,18 +81,55 @@ def test_post_productos_interes_multimatch_persists_all(client, seed_catalogs, d
     assert n == 2
 
 
-def test_post_unknown_producto_interes_fails(client, seed_catalogs):
+def test_post_unknown_producto_interes_skips_with_warning(client, seed_catalogs):
+    """`productos_interes` es find-or-skip: un modelo inexistente NO produce 422. El lead se crea
+    igual (201) sin ese producto y el modelo omitido se reporta en el header `Warning` (éxito
+    parcial, como las ciudades)."""
     r = client.post("/leads", json=_payload(productos_interes=["NoExiste"]))
-    assert r.status_code == 422
+    assert r.status_code == 201
+    assert r.json()["productos_interes"] == []
+    assert "warning" in {k.lower() for k in r.headers} and "NoExiste" in r.headers["warning"]
+
+
+def test_patch_productos_interes_is_additive(client, seed_catalogs, db):
+    """En PATCH `productos_interes` es aditivo: combina lo enviado con lo ya vinculado (no reemplaza)."""
+    make_producto(db, marca="Bosch", modelo="Filtro A", precio=100)
+    make_producto(db, marca="ATE", modelo="Balata B", precio=200)
+    created = client.post("/leads", json=_payload(productos_interes=["Filtro A"]))
+    lead_id = created.json()["id"]
+    r = client.patch(f"/leads/{lead_id}", json={"productos_interes": ["Balata B"]})
+    assert r.status_code == 200
+    assert sorted(r.json()["productos_interes"]) == ["Balata B", "Filtro A"]
 
 
 def test_post_rejects_non_e164_phone(client, seed_catalogs):
     assert client.post("/leads", json=_payload(telefono="5512345678")).status_code == 422
 
 
-def test_post_ignores_estado_in_body(client, seed_catalogs):
-    """`estado` es derivado: extra="ignore" descarta el del body; el estado se sigue derivando de la ciudad."""
-    r = client.post("/leads", json=_payload(ciudad="Guadalajara", estado="Quintana Roo"))
+def test_post_resolves_estado_by_abbreviation(client, seed_catalogs):
+    """El estado de la ciudad se resuelve por abreviación (p. ej. 'JAL' → Jalisco)."""
+    r = client.post("/leads", json=_payload(ciudad={"ciudad": "Guadalajara", "estado": "JAL"}))
+    assert r.status_code == 201
+    assert r.json()["estado"] == "Jalisco"
+
+
+def test_patch_changes_ciudad(client, seed_catalogs):
+    """PATCH cambia la ciudad enviando el objeto `{ciudad, estado}`; el `estado` se re-deriva."""
+    lead_id = client.post(
+        "/leads", json=_payload(ciudad={"ciudad": "Guadalajara", "estado": "Jalisco"})
+    ).json()["id"]
+    r = client.patch(f"/leads/{lead_id}", json={"ciudad": {"ciudad": "Zapopan", "estado": "Jalisco"}})
+    assert r.status_code == 200
+    assert r.json()["ciudad"] == "zapopan"
+    assert r.json()["estado"] == "Jalisco"
+
+
+def test_post_ignores_top_level_estado(client, seed_catalogs):
+    """El `estado` de respuesta es derivado de la ciudad: un `estado` suelto a nivel raíz del body
+    (fuera del objeto `ciudad`) se descarta (extra="ignore") y no altera el estado derivado."""
+    r = client.post("/leads", json=_payload(
+        ciudad={"ciudad": "Guadalajara", "estado": "Jalisco"}, estado="Quintana Roo",
+    ))
     assert r.status_code == 201
     assert r.json()["estado"] == "Jalisco"
 

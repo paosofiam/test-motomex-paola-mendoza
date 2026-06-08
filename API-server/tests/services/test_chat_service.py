@@ -3,8 +3,8 @@
 Invariantes que vive el service: `lead_id` (Tier 3) inexistente → `NotFoundError` (→ 404);
 `chat_status_id` (Tier 1, find-or-fail) que no resuelve → `ResolutionError` (→ 422 con
 `field`/`value_received`), validado ANTES del flush en `update` (evita IntegrityError de FK);
-regla "un chat activo por lead" (el soft-delete del previo lo hace el modelo) y `status` Tier 1
-derivado (string). Llamadas directas con `Session`.
+regla "un chat activo por lead" (el soft-delete del previo lo hace el service al crear) y `status`
+Tier 1 derivado (string). Llamadas directas con `Session`.
 """
 
 import pytest

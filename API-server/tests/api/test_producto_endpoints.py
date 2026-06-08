@@ -66,14 +66,40 @@ def test_post_cascades_vehiculo_and_categoria(client, seed_catalogs, db):
     assert r.status_code == 201
 
 
-def test_post_ciudades_is_find_or_fail(client, seed_catalogs):
-    """`ciudades` es find-or-fail: una ciudad sembrada resuelve (201); una inexistente → 422 problem+json con field/value_received."""
-    assert client.post("/productos", json=_payload(modelo="OK", ciudades=["Guadalajara"])).status_code == 201
-    r = client.post("/productos", json=_payload(modelo="Bad", ciudades=["Tijuana"]))
-    assert r.status_code == 422
-    assert r.headers["content-type"].startswith("application/problem+json")
-    assert r.json()["field"] == "ciudades"
-    assert r.json()["value_received"] == "Tijuana"
+def test_post_ciudades_is_find_or_create_with_partial_success(client, seed_catalogs):
+    """`ciudades` viaja como `[{ciudad, estado}]` y es find-or-create con éxito parcial: una con
+    estado válido se vincula (y aparece en la respuesta); una con estado no reconocido se omite y el
+    producto se crea igual con un header `Warning` (no 422)."""
+    ok = client.post("/productos", json=_payload(
+        modelo="OK", ciudades=[{"ciudad": "Guadalajara", "estado": "Jalisco"}],
+    ))
+    assert ok.status_code == 201
+    assert ok.json()["ciudades"] == [{"ciudad": "guadalajara", "estado": "Jalisco"}]
+    assert "warning" not in {k.lower() for k in ok.headers}
+
+    parcial = client.post("/productos", json=_payload(
+        modelo="Bad", ciudades=[{"ciudad": "Tijuana", "estado": "Atlantis"}],
+    ))
+    assert parcial.status_code == 201
+    assert parcial.json()["ciudades"] == []
+    assert "warning" in {k.lower() for k in parcial.headers}
+    assert "Tijuana" in parcial.headers["warning"]
+
+
+def test_post_response_is_complete_resource(client, seed_catalogs):
+    """La respuesta de POST /productos es el recurso completo: además de los campos propios, incluye
+    `vehiculos`, `categorias` y `ciudades` ya persistidos (estas como objetos `{ciudad, estado}`)."""
+    r = client.post("/productos", json=_payload(
+        modelo="Completo",
+        vehiculos=[{"modelo": "Versa", "marca": "Nissan", "anio": 2015}],
+        categorias=["Baterias"],
+        ciudades=[{"ciudad": "Guadalajara", "estado": "JAL"}],
+    ))
+    assert r.status_code == 201
+    body = r.json()
+    assert body["vehiculos"] == [{"modelo": "versa", "marca": "nissan", "anio": 2015}]
+    assert body["categorias"] == ["baterias"]
+    assert body["ciudades"] == [{"ciudad": "guadalajara", "estado": "Jalisco"}]
 
 
 def test_post_rejects_non_positive_price(client, seed_catalogs):
@@ -145,3 +171,24 @@ def test_patch_producto_not_allowed(client, seed_catalogs):
     assert r.status_code in (404, 405)
     if r.status_code == 405:
         assert "GET" in r.headers.get("allow", "")
+
+
+def test_get_list_filters_by_relations_over_http(client, seed_catalogs):
+    """Los filtros de relación viajan como query params y se combinan con AND sobre la colección."""
+    versa = client.post("/productos", json=_payload(
+        modelo="BateriaVersa",
+        vehiculos=[{"modelo": "Versa", "marca": "Nissan", "anio": 2015}],
+        categorias=["Baterias"],
+    )).json()
+    client.post("/productos", json=_payload(modelo="Generico"))
+    compat = client.get("/productos", params={"vehiculo_modelo": "versa", "vehiculo_anio": 2015}).json()
+    assert [p["id"] for p in compat] == [versa["id"]]
+    por_cat = client.get("/productos", params={"categoria": "baterias", "stock_minimo": 1}).json()
+    assert [p["id"] for p in por_cat] == [versa["id"]]
+    assert client.get("/productos", params={"marca": "inexistente"}).json() == []
+
+
+def test_get_list_rejects_malformed_query_params(client, seed_catalogs):
+    """Valores mal formados → 422 (Pydantic): `order_by` fuera del Literal y `vehiculo_anio` no-entero."""
+    assert client.get("/productos", params={"order_by": "drop_table"}).status_code == 422
+    assert client.get("/productos", params={"vehiculo_anio": "abc"}).status_code == 422
