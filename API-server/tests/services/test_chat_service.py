@@ -125,4 +125,15 @@ def test_delete_is_soft_keeps_row(db, seed_catalogs):
     lead = make_lead(db)
     chat, _ = chat_service.create(db, _create(lead))
     assert chat_service.delete(db, chat.id) is None
-    assert db.get(ChatModel, chat.id).deleted_at is not None
+    fila = db.get(ChatModel, chat.id)
+    assert fila.deleted_at is not None
+    assert fila.chat_status_id == chat_service.CHAT_STATUS_CERRADO_ID
+
+
+def test_delete_closes_chat_overriding_previous_status(db, seed_catalogs):
+    """El soft-delete cierra el chat (status → 5) sobrescribiendo cualquier status previo, no solo
+    "activo": un chat creado en "con cliente" (4) queda en "cerrado" (5) tras borrarlo."""
+    lead = make_lead(db)
+    chat, _ = chat_service.create(db, _create(lead, chat_status_id=4))
+    chat_service.delete(db, chat.id)
+    assert db.get(ChatModel, chat.id).chat_status_id == 5

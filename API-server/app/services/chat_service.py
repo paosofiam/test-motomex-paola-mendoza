@@ -23,6 +23,8 @@ from app.models.chat_status_model import ChatStatusModel
 from app.models.lead_model import LeadModel
 from app.schemas.chat import ChatCreate, ChatResponse, ChatUpdate
 
+CHAT_STATUS_CERRADO_ID = 5
+
 
 def _get_active_by_lead_or_whatsapp(
     db: Session, lead_id: int, chat_whatsapp_id: str
@@ -141,8 +143,18 @@ def update(db: Session, chat_id: int, payload: ChatUpdate) -> ChatResponse:
 
 
 def delete(db: Session, chat_id: int) -> None:
-    """Soft-delete del chat. Lanza `NotFoundError` (→ 404) si no existe o ya está soft-deleted."""
+    """Soft-delete del chat: marca `deleted_at` y además lo cierra (`chat_status_id` → 5 cerrado) para
+    que la fila borrada quede autoconsistente. En este diseño el `DELETE` de un chat es el único
+    mecanismo para terminar/reemplazar la sesión (`endpoints.md` → "Política de borrado"), y terminar
+    la sesión es cerrarla; sin esto un chat borrado podría quedar con status "activo", incoherente al
+    leer la tabla. `chat_statuses` es Tier 1 sembrado e inmutable, así que el id 5 siempre existe.
+    Refresca `updated_at` (se muta una columna de dominio). Lanza `NotFoundError` (→ 404) si no existe
+    o ya está soft-deleted.
+    """
     chat = ChatModel.get_by_id(db, chat_id)
     if chat is None:
         raise NotFoundError("Chat", chat_id)
-    chat.deleted_at = _now()
+    ts = _now()
+    chat.chat_status_id = CHAT_STATUS_CERRADO_ID
+    chat.deleted_at = ts
+    chat.updated_at = ts

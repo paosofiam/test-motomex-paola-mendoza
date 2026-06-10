@@ -6,13 +6,13 @@ categorias/ciudades, persistencia) vive en `services/producto_service.py`. Las e
 dominio que suban se traducen a `application/problem+json` vía los handlers registrados.
 """
 
-from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.error_handlers import warning_header
+from app.core.query_params import OptDatetime, OptInt, OptStr
 from app.database import get_db
 from app.schemas.common import ProblemDetail
 from app.schemas.producto import ProductoCreate, ProductoResponse
@@ -23,26 +23,26 @@ router = APIRouter(prefix="/productos", tags=["productos"])
 
 @router.get("", response_model=list[ProductoResponse])
 def read_productos(
-    id: int | None = Query(None, description="Filtra por id exacto del producto."),
-    marca: str | None = Query(None, description="Marca (Tier 2): match exacto normalizado."),
-    modelo: str | None = Query(None, description="Modelo: coincidencia parcial 'contiene'."),
-    precio_minimo: int | None = Query(None, description="Precio mínimo en MXN centavos (>=)."),
-    precio_maximo: int | None = Query(None, description="Precio máximo en MXN centavos (<=)."),
-    moneda_id: int | None = Query(None, description="Moneda original del producto (Tier 1)."),
-    stock_minimo: int | None = Query(None, description="Stock mínimo (>=)."),
-    stock_maximo: int | None = Query(None, description="Stock máximo (<=)."),
-    espec_clave: str | None = Query(None, description="Clave dentro de `especificaciones` (JSON)."),
-    espec_valor: str | None = Query(None, description="Valor exacto para `espec_clave`."),
-    creado_desde: datetime | None = Query(None, description="created_at >= (ISO 8601)."),
-    creado_hasta: datetime | None = Query(None, description="created_at <= (ISO 8601)."),
-    actualizado_desde: datetime | None = Query(None, description="updated_at >= (ISO 8601)."),
-    actualizado_hasta: datetime | None = Query(None, description="updated_at <= (ISO 8601)."),
-    categoria: str | None = Query(None, description="Categoría (Tier 2): match exacto normalizado."),
-    ciudad: str | None = Query(None, description="Ciudad con disponibilidad (Tier 2): exacto normalizado."),
-    estado: str | None = Query(None, description="Estado (nombre o abreviación) con disponibilidad."),
-    vehiculo_modelo: str | None = Query(None, description="Modelo de vehículo compatible: parcial 'contiene'."),
-    vehiculo_marca: str | None = Query(None, description="Marca de vehículo compatible (Tier 2): exacto normalizado."),
-    vehiculo_anio: int | None = Query(None, description="Año de vehículo compatible: exacto."),
+    id: Annotated[OptInt, Query(description="Filtra por id exacto del producto.")] = None,
+    marca: Annotated[OptStr, Query(description="Marca (Tier 2): match exacto normalizado.")] = None,
+    modelo: Annotated[OptStr, Query(description="Modelo: coincidencia parcial 'contiene'.")] = None,
+    precio_minimo: Annotated[OptInt, Query(description="Precio mínimo en MXN centavos (>=).")] = None,
+    precio_maximo: Annotated[OptInt, Query(description="Precio máximo en MXN centavos (<=).")] = None,
+    moneda_id: Annotated[OptInt, Query(description="Moneda original del producto (Tier 1).")] = None,
+    stock_minimo: Annotated[OptInt, Query(description="Stock mínimo (>=).")] = None,
+    stock_maximo: Annotated[OptInt, Query(description="Stock máximo (<=).")] = None,
+    espec_clave: Annotated[OptStr, Query(description="Clave dentro de `especificaciones` (JSON).")] = None,
+    espec_valor: Annotated[OptStr, Query(description="Valor exacto para `espec_clave`.")] = None,
+    creado_desde: Annotated[OptDatetime, Query(description="created_at >= (ISO 8601).")] = None,
+    creado_hasta: Annotated[OptDatetime, Query(description="created_at <= (ISO 8601).")] = None,
+    actualizado_desde: Annotated[OptDatetime, Query(description="updated_at >= (ISO 8601).")] = None,
+    actualizado_hasta: Annotated[OptDatetime, Query(description="updated_at <= (ISO 8601).")] = None,
+    categoria: Annotated[OptStr, Query(description="Categoría (Tier 2): match exacto normalizado.")] = None,
+    ciudad: Annotated[OptStr, Query(description="Ciudad con disponibilidad (Tier 2): exacto normalizado.")] = None,
+    estado: Annotated[OptStr, Query(description="Estado (nombre o abreviación) con disponibilidad.")] = None,
+    vehiculo_modelo: Annotated[OptStr, Query(description="Modelo de vehículo compatible: parcial 'contiene'.")] = None,
+    vehiculo_marca: Annotated[OptStr, Query(description="Marca de vehículo compatible (Tier 2): exacto normalizado.")] = None,
+    vehiculo_anio: Annotated[OptInt, Query(description="Año de vehículo compatible: exacto.")] = None,
     order_by: Literal["id", "precio", "stock", "modelo", "marca", "created_at", "updated_at"] = Query(
         "id", description="Campo de ordenamiento."
     ),

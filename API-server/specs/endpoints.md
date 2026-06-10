@@ -38,6 +38,11 @@ Los siguientes alias se usan en la tabla de endpoints:
 
 - Todos los productos deben ser retornados por la API con precio en pesos mexicanos (aplicando el `tipo_de_cambio` correspondiente si la moneda original es distinta), respetando la convención de centésimas.
 
+### Query params opcionales vacíos (robustez para el consumidor LLM)
+
+- Todos los filtros opcionales de `GET /productos` tratan la **cadena vacía** (o de solo espacios) como **ausencia de filtro** (equivalente a no enviar el parámetro). Motivo: el consumidor es el agente n8n, que cablea los filtros con `$fromAI(...)` y **envía el parámetro aunque el modelo lo deje vacío** (`GET /productos?vehiculo_anio=`); sin esta tolerancia un filtro numérico/fecha vacío daría `422 int_parsing` en vez de simplemente no filtrar (p. ej. marca+modelo sin año es una consulta válida). Implementado en `app/core/query_params.py` (`BeforeValidator` `''→None`).
+- Un valor **no vacío pero inválido** (`vehiculo_anio=abc`) sigue dando `422`: solo se neutraliza la cadena vacía, no el input realmente malformado.
+
 ### Formato de respuestas (REST puro)
 
 - Las respuestas de éxito devuelven el recurso directamente como body, sin wrapper. El status HTTP es la fuente única de verdad sobre éxito o fracaso.
@@ -90,7 +95,7 @@ Pueden agregarse campos extra propios del error (ej. `field`, `value_received`).
 ### Política de borrado
 
 - **`leads` no tiene `DELETE`**: los leads no se eliminan vía API (son el registro CRM del cliente y su unicidad por `chat_whatsapp_id` se mantiene sin reemplazo). Solo `GET`/`POST`/`PATCH`.
-- **`chats` sí tiene `DELETE`** (soft delete, `204`): es el mecanismo para "reemplazar" un chat — borrar el activo y luego `POST` uno nuevo, ya que `POST` nunca elimina el anterior.
+- **`chats` sí tiene `DELETE`** (soft delete, `204`): es el mecanismo para "reemplazar" un chat — borrar el activo y luego `POST` uno nuevo, ya que `POST` nunca elimina el anterior. El soft-delete además **cierra el chat** (`chat_status_id` → `5` cerrado) para que la fila borrada quede autoconsistente (borrar un chat = terminar la sesión; evita que quede borrado pero con status "activo").
 
 ### Campo `ciudad`/`estado` en `/leads` y `/productos`
 

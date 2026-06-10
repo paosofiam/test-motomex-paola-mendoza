@@ -154,5 +154,7 @@ def test_delete_is_soft_and_idempotent_404(client, seed_catalogs, db):
     cid = client.post("/chats", json=_chat_payload(lead)).json()["id"]
     assert client.delete(f"/chats/{cid}").status_code == 204
     assert client.get(f"/chats/{cid}").status_code == 404
-    assert db.get(ChatModel, cid).deleted_at is not None
+    fila = db.get(ChatModel, cid)
+    assert fila.deleted_at is not None
+    assert fila.chat_status_id == 5
     assert client.delete(f"/chats/{cid}").status_code == 404

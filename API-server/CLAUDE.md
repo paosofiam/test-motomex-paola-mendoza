@@ -30,7 +30,7 @@ Para construir una capa, invoca la skill correspondiente:
 
 - **Dinero = `int` centavos** en BD y en respuestas. Nunca `float`. `12999` = $129.99.
 - **Respuestas siempre en MXN**: `mxn_centavos = round(precio * tipo_de_cambio / 100)` (entero). `tipo_de_cambio` también es centavos: MXN=100, USD=1700, EUR=2300.
-- **Soft delete only**: delete ⇒ set `deleted_at`. Activo ⇔ `deleted_at IS NULL`. **Toda** query filtra `deleted_at IS NULL`.
+- **Soft delete only**: delete ⇒ set `deleted_at`. Activo ⇔ `deleted_at IS NULL`. **Toda** query filtra `deleted_at IS NULL`. Caso especial `chats`: su `delete` además fija `chat_status_id=5` (cerrado) y refresca `updated_at`, para que la fila borrada no quede como "activo" (borrar un chat = terminar la sesión).
 - **Catálogos sin delete alguno**: `marcas`, `monedas`, `ciudades`, `estados`, `vehiculos`, `categorias`, `intenciones_de_compra_de_leads`, `chat_statuses`. Crecen solo por find-or-create.
 - **Columnas estándar en TODAS las tablas** (incl. relación): `id` PK, `created_at`, `updated_at`, `deleted_at` (null). `create` ⇒ `created_at == updated_at`. `update` ⇒ refresca `updated_at`.
 - **Un activo por `chat_whatsapp_id` (leads y chats)**: `POST` es **idempotente** — si ya existe uno activo (chats: por `lead_id` **o** `chat_whatsapp_id`; leads: por `chat_whatsapp_id`), se devuelve el existente con `200 OK` (en vez de `201`), sin crear ni borrar. `create` **NUNCA** soft-deletea el previo: reemplazar un chat exige `DELETE`; los leads no se borran vía API. Consultas por `chat_whatsapp_id`/`lead_id` ⇒ `ORDER BY created_at DESC LIMIT 1`. La unicidad se valida en service (no UNIQUE parcial en MySQL) ⇒ pequeña ventana TOCTOU.

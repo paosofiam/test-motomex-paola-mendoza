@@ -189,6 +189,35 @@ def test_get_list_filters_by_relations_over_http(client, seed_catalogs):
 
 
 def test_get_list_rejects_malformed_query_params(client, seed_catalogs):
-    """Valores mal formados → 422 (Pydantic): `order_by` fuera del Literal y `vehiculo_anio` no-entero."""
+    """Valores mal formados → 422 (Pydantic): `order_by` fuera del Literal y `vehiculo_anio` no-entero.
+    La cadena vacía SÍ se tolera (ver `test_get_list_empty_optional_params_*`); lo que se rechaza es un
+    valor no vacío que no parsea (`abc`)."""
     assert client.get("/productos", params={"order_by": "drop_table"}).status_code == 422
     assert client.get("/productos", params={"vehiculo_anio": "abc"}).status_code == 422
+
+
+def test_get_list_empty_numeric_param_treated_as_absent(client, seed_catalogs):
+    """Robustez para el consumidor LLM: un filtro numérico vacío (`?vehiculo_anio=`) equivale a
+    omitirlo (200, no 422). El agente n8n envía el query param aunque el modelo lo deje vacío, y
+    marca+modelo sin año es una consulta válida (no debe romper con `int_parsing`)."""
+    versa = client.post("/productos", json=_payload(
+        modelo="BateriaVersa",
+        vehiculos=[{"modelo": "Versa", "marca": "Nissan", "anio": 2015}],
+    )).json()
+    client.post("/productos", json=_payload(modelo="Generico"))
+    r = client.get("/productos", params={
+        "vehiculo_marca": "Nissan", "vehiculo_modelo": "Versa", "vehiculo_anio": "",
+    })
+    assert r.status_code == 200
+    assert [p["id"] for p in r.json()] == [versa["id"]]
+
+
+def test_get_list_empty_params_equal_omitting_them(client, seed_catalogs):
+    """`precio_minimo=`/`precio_maximo=` vacíos (numéricos) y `marca=` vacío (string) → 200 y NO
+    filtran: el resultado es idéntico a no enviar ningún filtro."""
+    client.post("/productos", json=_payload(marca="Nissan", modelo="A"))
+    client.post("/productos", json=_payload(marca="Toyota", modelo="B"))
+    todos = [p["id"] for p in client.get("/productos").json()]
+    vacios = client.get("/productos", params={"precio_minimo": "", "precio_maximo": "", "marca": ""})
+    assert vacios.status_code == 200
+    assert [p["id"] for p in vacios.json()] == todos
