@@ -7,8 +7,10 @@ Para entender las decisiones de lógica de negocio que dan forma a estos endpoin
 Los siguientes alias se usan en la tabla de endpoints:
 
 - `Producto = {"id": int, "marca": string, "modelo": string, "precio": int, "moneda": string, "stock": int, "especificaciones": { "campo": "valor" }, "vehiculos": [{"modelo": string, "marca": string, "anio": int}], "categorias": [string], "ciudades": [{"ciudad": string, "estado": string}]}`
-- `Lead = {"id": int, "chat_id": int, "chat_whatsapp_id": string, "nombre_whatsapp": string, "telefono": string, "nombre": string, "ciudad": string | null, "estado": string | null, "productos_interes": [string], "vehiculo": [{"modelo": string, "marca": string, "anio": int}], "direccion_envio": string, "intencion_de_compra": string}`
-- `Chat = {"id": int, "lead_id": int, "chat_whatsapp_id": string, "status": string, "resumen": string}`
+- `Lead = {"id": int, "lead_id": int, "chat_id": int | null, "status": string | null, "chat_whatsapp_id": string, "nombre_whatsapp": string, "telefono": string, "nombre": string, "ciudad": string | null, "estado": string | null, "productos_interes": [string], "vehiculo": [{"modelo": string, "marca": string, "anio": int}], "direccion_envio": string, "intencion_de_compra": string}`
+- `Chat = {"id": int, "chat_id": int, "lead_id": int, "chat_whatsapp_id": string, "status": string, "resumen": string}`
+
+> `id`/`lead_id`/`chat_id`/`status` son **identificadores cruzados informativos**: ambos recursos (`Lead` y `Chat`) los exponen para que el consumidor LLM obtenga el id del lead, el id del chat activo y el status del chat consulte el recurso que consulte (menos roundtrips). En `Lead`, `lead_id == id`; en `Chat`, `chat_id == id`. `chat_id`/`status` de `Lead` se derivan del chat activo (null si aún no tiene). No son columnas de BD.
 - `PreOrden = {"id": int, "lead_id": int, "total": int, "productos": [{"producto_id": int, "modelo": string, "cantidad": int}]}`
 
 ## Tabla de endpoints
@@ -19,11 +21,11 @@ Los siguientes alias se usan en la tabla de endpoints:
 | /productos         | POST   | 201 Created  | —                                    | `{"marca": string, "modelo": string, "precio": int, "moneda_id": int, "stock": int, "especificaciones": { "campo": "valor" }, "vehiculos": [{"modelo": string, "marca": string, "anio": int}], "categorias": [string], "ciudades": [{"ciudad": string, "estado": string}]}` | `Producto`                                                   |
 | /productos/{id}    | GET    | 200 OK       | —                                    | null                                                                                                                                                                                                        | `Producto`                                                   |
 | /productos/{id}    | DELETE | 204 No Content | —                                  | null                                                                                                                                                                                                        | (sin body)                                                   |
-| /leads             | GET    | 200 OK       | `chat_whatsapp_id`, `intencion_de_compra` | null                                                                                                                                                                                                  | `[Lead]`                                                     |
-| /leads             | POST   | 201 Created  | —                                    | `{"chat_whatsapp_id": string, "nombre_whatsapp": string, "telefono": string, "nombre": string, "ciudad": {"ciudad": string, "estado": string}, "productos_interes": [string], "vehiculo": [{"modelo": string, "marca": string, "anio": int}], "direccion_envio": string, "intencion_de_compra_id": int}` | `Lead`                                              |
+| /leads             | GET    | 200 OK · 404 | `chat_whatsapp_id` (requerido)       | null                                                                                                                                                                                                  | `Lead`                                                       |
+| /leads             | POST   | 201 · 200 OK | —                                    | `{"chat_whatsapp_id": string, "nombre_whatsapp": string, "telefono": string, "nombre": string, "ciudad": {"ciudad": string, "estado": string}, "productos_interes": [string], "vehiculo": [{"modelo": string, "marca": string, "anio": int}], "direccion_envio": string, "intencion_de_compra_id": int}` | `Lead`                                              |
 | /leads/{id}        | GET    | 200 OK       | —                                    | null                                                                                                                                                                                                        | `Lead`                                                       |
 | /leads/{id}        | PATCH  | 200 OK       | —                                    | `{"nombre_whatsapp": string, "telefono": string, "nombre": string, "ciudad": {"ciudad": string, "estado": string}, "productos_interes": [string], "vehiculo": [{"modelo": string, "marca": string, "anio": int}], "direccion_envio": string, "intencion_de_compra_id": int}` | `Lead`                                              |
-| /chats             | POST   | 201 Created  | —                                    | `{"lead_id": int, "chat_whatsapp_id": string, "chat_status_id": int, "resumen": string}`                                                                                                                    | `Chat`                                                       |
+| /chats             | POST   | 201 · 200 OK | —                                    | `{"lead_id": int, "chat_whatsapp_id": string, "chat_status_id": int, "resumen": string}`                                                                                                                    | `Chat`                                                       |
 | /chats             | GET    | 200 OK       | `chat_whatsapp_id`                   | null                                                                                                                                                                                                        | `Chat`                                                       |
 | /chats/{id}        | GET    | 200 OK       | —                                    | null                                                                                                                                                                                                        | `Chat`                                                       |
 | /chats/{id}        | PATCH  | 200 OK       | —                                    | `{"chat_status_id": int, "resumen": string}`                                                                                                                                                                | `Chat`                                                       |
@@ -72,10 +74,23 @@ Pueden agregarse campos extra propios del error (ej. `field`, `value_received`).
 }
 ```
 
-### Endpoints de consulta de chats
+### Endpoints de consulta de leads y chats (siempre un solo objeto)
 
-- `GET /chats?chat_whatsapp_id=...` y `GET /chats/{id}` retornan siempre un único chat.
-- En la consulta por `chat_whatsapp_id`, se devuelve el chat más reciente (orden `created_at DESC`, límite 1), conforme a la regla de un solo chat activo por lead.
+- `GET /leads?chat_whatsapp_id=...`, `GET /leads/{id}`, `GET /chats?chat_whatsapp_id=...` y `GET /chats/{id}` retornan **siempre un único objeto** (no un array).
+- En las consultas por `chat_whatsapp_id`, se devuelve el más reciente (orden `created_at DESC`, límite 1), conforme a las reglas de **un solo chat activo por `chat_whatsapp_id`** y **un solo lead activo por `chat_whatsapp_id`**. Si no hay ninguno activo, responden `404`.
+
+### POST idempotente (201 Created vs 200 OK)
+
+- `POST /leads` y `POST /chats` son **idempotentes** por identificador natural:
+  - `POST /leads`: si ya existe un lead activo con el mismo `chat_whatsapp_id`, **no crea** uno nuevo; devuelve el lead existente con `200 OK`. Si no existe, lo crea y devuelve `201 Created`.
+  - `POST /chats`: si ya existe un chat activo con el mismo `lead_id` **o** el mismo `chat_whatsapp_id`, **no crea ni borra**; devuelve el chat existente con `200 OK`. Si no existe, lo crea y devuelve `201 Created`. (Se incluye `chat_whatsapp_id` en la clave porque el fan-out del bot puede mandar `lead_id` distintos con el mismo `chat_whatsapp_id` y aun así debe deduplicar.)
+- En ambos casos el body es el recurso y se incluye el header `Location` (apuntando al recurso devuelto, sea recién creado o preexistente). El `200` no es un error: es "tu petición se procesó, no se creó un elemento nuevo porque ya existía este".
+- Cuando se devuelve un recurso preexistente, el body de la petición se **ignora** (no se mezcla): para modificar un lead existente se usa `PATCH /leads/{id}`; para reemplazar un chat se usa `DELETE /chats/{id}` y luego `POST`.
+
+### Política de borrado
+
+- **`leads` no tiene `DELETE`**: los leads no se eliminan vía API (son el registro CRM del cliente y su unicidad por `chat_whatsapp_id` se mantiene sin reemplazo). Solo `GET`/`POST`/`PATCH`.
+- **`chats` sí tiene `DELETE`** (soft delete, `204`): es el mecanismo para "reemplazar" un chat — borrar el activo y luego `POST` uno nuevo, ya que `POST` nunca elimina el anterior.
 
 ### Campo `ciudad`/`estado` en `/leads` y `/productos`
 

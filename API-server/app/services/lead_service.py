@@ -7,9 +7,10 @@ que el router devuelve por HTTP. No conoce FastAPI ni gestiona la transacción (
 `get_db`); solo lanza excepciones de dominio (`NotFoundError`/`ResolutionError`), que
 `core/error_handlers.py` traduce a RFC 7807.
 
-Construcción de la respuesta (`endpoints.md`): incluye los campos derivados `chat_id` (chat activo
-más reciente, vía `resolvers.get_active_chat_id`), `estado` (`ciudad → ciudades.estado_id →
-estados.estado`) e `intencion_de_compra` (string). Los vehículos viajan siempre como objetos
+Construcción de la respuesta (`endpoints.md`): incluye los campos derivados `chat_id` y `status`
+(chat activo más reciente, vía `resolvers.get_active_chat`), `estado` (`ciudad → ciudades.estado_id →
+estados.estado`) e `intencion_de_compra` (string). `lead_id` se devuelve además del `id` como alias
+informativo (identificador cruzado, simétrico con `Chat`). Los vehículos viajan siempre como objetos
 `{modelo, marca, anio}`.
 """
 
@@ -90,11 +91,28 @@ def _sync_vehiculos(
     )
 
 
+def _get_active_by_chat_whatsapp_id(db: Session, chat_whatsapp_id: str) -> LeadModel | None:
+    """Lead activo más reciente por `chat_whatsapp_id` (ORDER BY created_at DESC LIMIT 1).
+
+    Espejo de `chat_service._get_by_chat_whatsapp_id`. Es la clave de unicidad de leads: lo usan la
+    idempotencia de `create` y la consulta `get_by_chat_whatsapp_id`.
+    """
+    return db.scalar(
+        select(LeadModel)
+        .where(LeadModel.chat_whatsapp_id == chat_whatsapp_id, LeadModel.deleted_at.is_(None))
+        .order_by(LeadModel.created_at.desc())
+        .limit(1)
+    )
+
+
 def _to_response(db: Session, lead: LeadModel) -> LeadResponse:
     """Convierte la instancia ORM al DTO de respuesta, resolviendo los campos derivados."""
+    chat = resolvers.get_active_chat(db, lead.id)
     return LeadResponse(
         id=lead.id,
-        chat_id=resolvers.get_active_chat_id(db, lead.id),
+        lead_id=lead.id,
+        chat_id=chat.id if chat else None,
+        status=chat.chat_status.status if chat else None,
         chat_whatsapp_id=lead.chat_whatsapp_id,
         nombre_whatsapp=lead.nombre_whatsapp,
         telefono=lead.telefono,
@@ -115,26 +133,20 @@ def _to_response(db: Session, lead: LeadModel) -> LeadResponse:
     )
 
 
-def search(
-    db: Session,
-    chat_whatsapp_id: str | None = None,
-    intencion_de_compra: str | None = None,
-) -> list[LeadResponse]:
-    """Lista leads activos, con filtros opcionales por `chat_whatsapp_id` e `intencion_de_compra`.
+def get_by_chat_whatsapp_id(db: Session, chat_whatsapp_id: str) -> LeadResponse:
+    """Lead activo más reciente por `chat_whatsapp_id` (un solo objeto, calcando a chats).
 
-    Esta función es la dueña del filtrado de leads: construye y ejecuta aquí la query (`deleted_at IS
-    NULL` + JOIN opcional a `intenciones_de_compra_de_leads` por `tipo`), en vez de delegar en el
-    modelo.
+    Por la regla "un lead activo por `chat_whatsapp_id`" la consulta retorna a lo sumo uno
+    (`ORDER BY created_at DESC LIMIT 1`); lanza `NotFoundError` (→ 404) si no existe ninguno activo.
     """
-    stmt = select(LeadModel).where(LeadModel.deleted_at.is_(None))
-    if chat_whatsapp_id is not None:
-        stmt = stmt.where(LeadModel.chat_whatsapp_id == chat_whatsapp_id)
-    if intencion_de_compra is not None:
-        stmt = stmt.join(
-            IntencionDeCompraDeLeadModel,
-            LeadModel.intencion_de_compra_id == IntencionDeCompraDeLeadModel.id,
-        ).where(IntencionDeCompraDeLeadModel.tipo == intencion_de_compra)
-    return [_to_response(db, lead) for lead in db.scalars(stmt)]
+    lead = _get_active_by_chat_whatsapp_id(db, chat_whatsapp_id)
+    if lead is None:
+        raise NotFoundError(
+            "Lead",
+            chat_whatsapp_id,
+            detail=f"No existe un lead activo para chat_whatsapp_id={chat_whatsapp_id}",
+        )
+    return _to_response(db, lead)
 
 
 def get_by_id(db: Session, lead_id: int) -> LeadResponse:
@@ -145,17 +157,29 @@ def get_by_id(db: Session, lead_id: int) -> LeadResponse:
     return _to_response(db, lead)
 
 
-def create(db: Session, payload: LeadCreate) -> tuple[LeadResponse, list[str]]:
-    """Crea un lead y vincula sus relaciones. El lead SIEMPRE se crea: `ciudad` ({ciudad, estado}) se
-    resuelve a `ciudad_id` con éxito parcial; `productos_interes` es find-or-skip aditivo; `vehiculo`
-    find-or-create. Devuelve `(respuesta, avisos)`: si el estado de la ciudad no se reconoce o un
-    producto de interés no existe en el inventario, se omite ese dato, el lead se guarda igual y se
-    acumula el aviso (el router lo expone en el header `Warning`).
+def create(db: Session, payload: LeadCreate) -> tuple[LeadResponse, list[str], bool]:
+    """Crea un lead de forma IDEMPOTENTE por `chat_whatsapp_id`. Si ya existe un lead activo con ese
+    `chat_whatsapp_id`, NO crea uno nuevo: ignora el body y devuelve el existente (el router responde
+    200). Solo si no existe ninguno se valida y se crea (201). Los leads no se borran vía API: para
+    enriquecer uno existente se usa `PATCH /leads/{id}` sobre su `id`.
+
+    Cuando se crea: el lead SIEMPRE se guarda. `ciudad` ({ciudad, estado}) se resuelve a `ciudad_id`
+    con éxito parcial; `productos_interes` es find-or-skip aditivo; `vehiculo` find-or-create. Si el
+    estado de la ciudad no se reconoce o un producto de interés no existe en el inventario, se omite
+    ese dato, el lead se guarda igual y se acumula el aviso (el router lo expone en el header
+    `Warning`).
 
     `db.flush()` de las filas de relación ANTES del `db.refresh(lead)`: sin esto, con
     `autoflush=False`, la carga `selectin` de `leads_productos`/`leads_vehiculos` leería las tablas
     de relación aún vacías y la respuesta saldría con listas vacías. `created_at == updated_at`.
+
+    Devuelve `(respuesta, avisos, creado)`: `creado=False` (y `avisos=[]`) cuando se devolvió uno ya
+    existente.
     """
+    existente = _get_active_by_chat_whatsapp_id(db, payload.chat_whatsapp_id)
+    if existente is not None:
+        return _to_response(db, existente), [], False
+
     _validate_intencion(db, payload.intencion_de_compra_id)
     data = payload.model_dump()
     ciudad_id, avisos = _resolver_ciudad(db, data.pop("ciudad"))
@@ -172,7 +196,7 @@ def create(db: Session, payload: LeadCreate) -> tuple[LeadResponse, list[str]]:
 
     db.flush()
     db.refresh(lead)
-    return _to_response(db, lead), avisos
+    return _to_response(db, lead), avisos, True
 
 
 def update(db: Session, lead_id: int, payload: LeadUpdate) -> tuple[LeadResponse, list[str]]:

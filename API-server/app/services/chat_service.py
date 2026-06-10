@@ -1,16 +1,19 @@
 """Capa de orquestación del recurso chats (router → service → model).
 
 Media entre `routers/chats.py` y `ChatModel` (tabla ORM pura): recibe los schemas ya validados por
-Pydantic, valida la existencia de los ids referenciados, aplica la regla de un chat activo por lead
-(soft-delete del chat previo al crear) y construye el `ChatResponse` que el router devuelve por HTTP.
+Pydantic, valida la existencia de los ids referenciados, aplica la regla de un chat activo por
+`chat_whatsapp_id` (`create` idempotente: si ya hay uno activo con el mismo `lead_id` o
+`chat_whatsapp_id`, devuelve el existente sin crear ni borrar) y construye el `ChatResponse` que el
+router devuelve por HTTP.
 No conoce FastAPI ni gestiona la transacción (el commit lo hace `get_db`); solo lanza excepciones de
 dominio (`NotFoundError`/`ResolutionError`), que `core/error_handlers.py` traduce a RFC 7807.
 
 Construcción de la respuesta (`endpoints.md`): `status` es Tier 1 derivado (string, vía
-`chat.chat_status.status`); nunca se devuelve `chat_status_id`.
+`chat.chat_status.status`); nunca se devuelve `chat_status_id`. `chat_id` se devuelve además del `id`
+como alias informativo (identificador cruzado, simétrico con `Lead`).
 """
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundError, ResolutionError
@@ -21,11 +24,22 @@ from app.models.lead_model import LeadModel
 from app.schemas.chat import ChatCreate, ChatResponse, ChatUpdate
 
 
-def _get_active_by_lead(db: Session, lead_id: int) -> ChatModel | None:
-    """Chat activo más reciente del lead (ORDER BY created_at DESC LIMIT 1, deleted_at IS NULL)."""
+def _get_active_by_lead_or_whatsapp(
+    db: Session, lead_id: int, chat_whatsapp_id: str
+) -> ChatModel | None:
+    """Chat activo más reciente con el mismo `lead_id` O el mismo `chat_whatsapp_id`.
+
+    Clave de idempotencia de `create`: en el fan-out del bot varios intentos comparten
+    `chat_whatsapp_id` aunque traigan `lead_id` distintos, así que basta con que coincida cualquiera
+    de los dos para considerar que ya existe un chat activo. `ORDER BY created_at DESC LIMIT 1`,
+    `deleted_at IS NULL`.
+    """
     return db.scalar(
         select(ChatModel)
-        .where(ChatModel.lead_id == lead_id, ChatModel.deleted_at.is_(None))
+        .where(
+            ChatModel.deleted_at.is_(None),
+            or_(ChatModel.lead_id == lead_id, ChatModel.chat_whatsapp_id == chat_whatsapp_id),
+        )
         .order_by(ChatModel.created_at.desc())
         .limit(1)
     )
@@ -45,6 +59,7 @@ def _to_response(chat: ChatModel) -> ChatResponse:
     """Convierte la instancia ORM al DTO de respuesta, resolviendo el `status` Tier 1 (string)."""
     return ChatResponse(
         id=chat.id,
+        chat_id=chat.id,
         lead_id=chat.lead_id,
         chat_whatsapp_id=chat.chat_whatsapp_id,
         status=chat.chat_status.status,
@@ -52,28 +67,33 @@ def _to_response(chat: ChatModel) -> ChatResponse:
     )
 
 
-def create(db: Session, payload: ChatCreate) -> ChatResponse:
-    """Crea un chat. `lead_id` (Tier 3) inexistente → `NotFoundError` (→ 404); `chat_status_id`
-    (Tier 1, catálogo) que no resuelve → `ResolutionError` (→ 422 con `field`/`value_received`).
+def create(db: Session, payload: ChatCreate) -> tuple[ChatResponse, bool]:
+    """Crea un chat de forma IDEMPOTENTE. Si ya existe un chat activo con el mismo `lead_id` O el
+    mismo `chat_whatsapp_id`, NO crea ni borra: devuelve el existente (el router responde 200). Solo
+    si no existe ninguno valida los ids y crea uno nuevo (201).
 
-    Un chat activo por lead: se soft-deletea el chat activo previo del mismo lead con el MISMO `ts`
-    que el INSERT del nuevo, antes de insertarlo. `created_at == updated_at`.
+    `lead_id` (Tier 3) inexistente → `NotFoundError` (→ 404); `chat_status_id` (Tier 1, catálogo) que
+    no resuelve → `ResolutionError` (→ 422 con `field`/`value_received`). Un solo chat activo por
+    `chat_whatsapp_id`: reemplazar un chat exige `DELETE` previo — `create` NUNCA elimina el anterior.
+    `created_at == updated_at`.
+
+    Devuelve `(respuesta, creado)`: `creado=False` cuando se devolvió uno ya existente.
     """
+    existente = _get_active_by_lead_or_whatsapp(db, payload.lead_id, payload.chat_whatsapp_id)
+    if existente is not None:
+        return _to_response(existente), False
+
     if LeadModel.get_by_id(db, payload.lead_id) is None:
         raise NotFoundError("Lead", payload.lead_id)
     if ChatStatusModel.get_by_id(db, payload.chat_status_id) is None:
         raise ResolutionError(field="chat_status_id", value_received=payload.chat_status_id)
 
     ts = _now()
-    previo = _get_active_by_lead(db, payload.lead_id)
-    if previo is not None:
-        previo.deleted_at = ts
-
     chat = ChatModel(**payload.model_dump(), created_at=ts, updated_at=ts)
     db.add(chat)
     db.flush()
     db.refresh(chat)
-    return _to_response(chat)
+    return _to_response(chat), True
 
 
 def get_by_chat_whatsapp_id(db: Session, chat_whatsapp_id: str) -> ChatResponse:

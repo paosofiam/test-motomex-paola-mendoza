@@ -1,6 +1,6 @@
 ---
 name: motomex-tests
-description: Usar al crear o modificar PRUEBAS del backend Motomex (API-server) — tests pytest de modelos, schemas, controladores/endpoints, migraciones o seeders, o cuando se pida "agregar tests", "pruebas", "cobertura", "probar el endpoint X". Stack de pruebas SÍNCRONO (pytest + FastAPI TestClient, sin async, sin auth). Verifica los invariantes de specs: dinero en centavos/MXN, soft delete, columnas estándar, matriz de métodos, Tier 1/2/3, find-or-create/find-or-fail, RFC 7807 y reglas de chats/leads.
+description: Usar al crear o modificar PRUEBAS del backend Motomex (API-server) — tests pytest de modelos, schemas, endpoints (routers), migraciones o seeders, o cuando se pida "agregar tests", "pruebas", "cobertura", "probar el endpoint X". Stack de pruebas SÍNCRONO (pytest + FastAPI TestClient, sin async, sin auth). Verifica los invariantes de specs: dinero en centavos/MXN, soft delete, columnas estándar, matriz de métodos, Tier 1/2/3, find-or-create/find-or-fail, RFC 7807 y reglas de chats/leads.
 ---
 
 # Capa de pruebas Motomex (pytest · TestClient)
@@ -104,7 +104,7 @@ Cada invariante de las specs debe tener al menos un test que falle si se rompe.
 
 ### Soft delete
 - `DELETE /productos/{id}` → `204` sin body; luego `GET /productos/{id}` → `404` y la fila sigue en BD con `deleted_at IS NOT NULL`.
-- Toda lista (`GET /productos`, `GET /leads`) **excluye** filas con `deleted_at`.
+- Las listas (`GET /productos`) **excluyen** filas con `deleted_at`; `GET /leads?chat_whatsapp_id=` devuelve un solo objeto (o `404`) y nunca un lead soft-deleted.
 - Catálogos sin endpoint de delete: no existe ruta `DELETE` para `marcas`/`monedas`/etc.
 
 ### Columnas estándar y timestamps
@@ -122,7 +122,7 @@ Cada invariante de las specs debe tener al menos un test que falle si se rompe.
 
 ### find-or-create vs find-or-fail
 - `POST /productos` con `marca` inexistente → la crea (find-or-create), `201`. Vehículo nuevo con marca nueva → cascada crea ambos.
-- `POST /leads` con `vehiculo` nuevo → find-or-create; con `ciudad` inexistente (find-or-fail) → `422` problem+json con `field` + `value_received`.
+- `POST /leads` con `vehiculo` nuevo → find-or-create (cascada marca). `ciudad` (`{ciudad, estado}`) es **éxito parcial**: si el estado no se reconoce, la ciudad se omite y el lead se crea igual (`201`) con header `Warning` — **no** `422`. Un `intencion_de_compra_id` (Tier 1) inexistente sí → `422` problem+json con `field` + `value_received`.
 - `leads.productos_interes[]` por `modelo`: si matchea varios productos, se persisten **todas** las relaciones (cuenta filas en `leads_productos`).
 - `pre_ordenes.productos[].producto_id` con id inexistente → `422`/`404`; **no** resuelve por string.
 
@@ -130,10 +130,11 @@ Cada invariante de las specs debe tener al menos un test que falle si se rompe.
 - Cualquier `4xx`/`5xx`: `Content-Type` empieza con `application/problem+json` y el body trae `type/title/status/detail/instance`; en validación, además `field` y `value_received`.
 
 ### Reglas de chats / leads
-- `POST /chats` cuando el lead ya tiene chat activo → el previo queda con `deleted_at` y solo hay **uno** activo.
-- `GET /chats?chat_whatsapp_id=` y `GET /chats/{id}` → un **solo** chat (el más reciente).
+- `POST /chats` y `POST /leads` son **idempotentes**: un 2º POST con el mismo identificador activo (chats: mismo `lead_id` **o** `chat_whatsapp_id`; leads: mismo `chat_whatsapp_id`) devuelve `200` + el existente, **no** crea fila nueva y **no** soft-deletea el previo. Incluye el caso del fan-out: distinto `lead_id` con el mismo `chat_whatsapp_id` **no** duplica chats.
+- `GET /chats?chat_whatsapp_id=`/`GET /chats/{id}` y `GET /leads?chat_whatsapp_id=`/`GET /leads/{id}` → un **solo** objeto (el más reciente; `404` si no hay).
+- `leads` **no** tiene `DELETE`; `DELETE /chats/{id}` es el único modo de "reemplazar" un chat (borrar el activo y luego `POST`).
 - `PATCH /chats/{id}` solo cambia `chat_status_id`/`resumen`; intentar mutar `lead_id`/`chat_whatsapp_id` no los cambia.
-- `GET /leads`: respuesta incluye `chat_id` (chat activo) y `estado` derivado (`ciudad→estados`); el body de POST/PATCH **rechaza** `estado`.
+- Bodies de respuesta: `/leads` incluye `lead_id`(=id), `chat_id`, `status` y `estado` derivados; `/chats` incluye `chat_id`(=id), `lead_id`, `status`. El body de POST/PATCH **rechaza** `estado`.
 
 ### Seeders
 - Tras seeding: `monedas` ids 1/2/3 con `tipo_de_cambio` 100/1700/2300; `intenciones` 1–4; `chat_statuses` 1–5 (valores exactos de `er_diagram.md`).

@@ -3,96 +3,73 @@
   "nodes": [
     {
       "parameters": {
-        "formTitle": "Extractor de productos Motomex",
-        "formDescription": "Pega el texto con los productos o sube un archivo de texto (.txt). La IA extraerá cada producto y lo dará de alta en el catálogo.",
+        "formTitle": "Extractor de productos desde texto.",
+        "formDescription": "Copia y pega tu texto en el campo de formulario para guardar nuevos productos en la base de datos.",
         "formFields": {
           "values": [
             {
-              "fieldLabel": "Texto",
+              "fieldLabel": "Pega tu texto aquí.",
               "fieldType": "textarea",
-              "placeholder": "Pega aquí el texto con la información de los productos...",
-              "requiredField": false
-            },
-            {
-              "fieldLabel": "Archivo",
-              "fieldType": "file",
-              "acceptFileTypes": ".txt,.md,.csv",
-              "multipleFiles": false,
-              "requiredField": false
+              "requiredField": true
             }
           ]
         },
-        "options": {}
+        "responseMode": "lastNode",
+        "options": {
+          "appendAttribution": false,
+          "buttonLabel": "Enviar Productos",
+          "path": "ingresar-productos",
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "Información guardada exitosamente"
+            }
+          },
+          "ignoreBots": true,
+          "useWorkflowTimezone": true
+        }
       },
       "type": "n8n-nodes-base.formTrigger",
-      "typeVersion": 2.6,
+      "typeVersion": 2.5,
       "position": [
-        0,
-        0
+        -192,
+        208
       ],
-      "id": "2e854b27-2b59-47e3-b093-953f9fea0d12",
-      "name": "On form submission",
-      "webhookId": "ee971abd-9e15-4f63-8b4b-d7a5129652c7",
-      "notes": "Dos campos: 'Texto' (textarea) y 'Archivo' (subida de .txt). El usuario puede usar cualquiera de los dos."
+      "id": "a2f076b2-c63c-401c-9912-5b16237f9a12",
+      "name": "Al recibir documento",
+      "webhookId": "842011e9-fdd9-4664-a78b-35437d15024b"
     },
     {
       "parameters": {
-        "operation": "text",
-        "binaryPropertyName": "Archivo",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.extractFromFile",
-      "typeVersion": 1.1,
-      "position": [
-        220,
-        0
-      ],
-      "id": "c1d2e3f4-0000-4000-8000-000000000001",
-      "name": "Extraer texto del archivo",
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "notes": "Extrae el texto del archivo subido (operation 'text'). binaryPropertyName debe coincidir con el nombre del campo de archivo del formulario ('Archivo'). Si solo se pega texto (sin archivo), no hay binario: onError continua y el texto se toma del textarea en el siguiente nodo."
-    },
-    {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "a0000000-0000-4000-8000-000000000001",
-              "name": "texto",
-              "value": "={{ $('Extraer texto del archivo').item.json.text || $('On form submission').item.json.Texto }}",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        440,
-        0
-      ],
-      "id": "c1d2e3f4-0000-4000-8000-000000000002",
-      "name": "Preparar texto fuente",
-      "notes": "Unifica la fuente: usa el texto extraído del archivo si existe; si no, el textarea del formulario."
-    },
-    {
-      "parameters": {
-        "text": "={{ $json.texto }}",
+        "text": "={{ $json['Pega tu texto aquí.'] }}",
         "schemaType": "manual",
-        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"productos\": {\n      \"type\": \"array\",\n      \"description\": \"Todos los productos encontrados en el texto\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"marca\": { \"type\": \"string\", \"description\": \"Marca del producto\" },\n          \"modelo\": { \"type\": \"string\", \"description\": \"Modelo o nombre del producto\" },\n          \"precio\": { \"type\": \"integer\", \"description\": \"Precio en CENTAVOS de su moneda original (12999 = 129.99). Multiplica por 100 si el texto da el precio en unidades.\" },\n          \"moneda_id\": { \"type\": \"integer\", \"description\": \"1=MXN (Pesos), 2=USD (Dólares), 3=EUR (Euros). Usa 1 si no se especifica.\" },\n          \"stock\": { \"type\": \"integer\", \"description\": \"Existencias. 0 si no se especifica.\" },\n          \"especificaciones\": { \"type\": \"object\", \"description\": \"Pares clave-valor con caracteristicas tecnicas, p. ej. { \\\"voltaje\\\": \\\"12V\\\" }. Objeto vacio si no hay.\" },\n          \"vehiculos\": { \"type\": \"array\", \"description\": \"Vehiculos compatibles\", \"items\": { \"type\": \"object\", \"properties\": { \"modelo\": { \"type\": \"string\" }, \"marca\": { \"type\": \"string\" }, \"anio\": { \"type\": \"integer\" } } } },\n          \"categorias\": { \"type\": \"array\", \"items\": { \"type\": \"string\" }, \"description\": \"Categorias del producto\" },\n          \"ciudades\": { \"type\": \"array\", \"items\": { \"type\": \"string\" }, \"description\": \"Ciudades donde esta disponible\" }\n        },\n        \"required\": [\"marca\", \"modelo\", \"precio\"]\n      }\n    }\n  },\n  \"required\": [\"productos\"]\n}",
+        "inputSchema": " {\n    \"type\": \"object\",  \n    \"properties\": {\n      \"productos\": {\n        \"type\": \"array\",\n        \"description\": \"Todos los productos encontrados en el texto\",\n        \"items\": {\n          \"type\": \"object\",\n          \"properties\": {\n            \"marca\": { \"type\": \"string\", \"description\": \"Marca del producto\" },\n            \"modelo\": { \"type\": \"string\", \"description\": \"Modelo o nombre del producto\" },\n            \"precio\": { \"type\": \"integer\", \"description\": \"Precio en CENTAVOS de su moneda original (12999 = 129.99). Multiplica por 100 si el texto da el precio en unidades.\" },\n            \"moneda_id\": { \"type\": \"integer\", \"description\": \"1=MXN (Pesos), 2=USD (Dólares), 3=EUR (Euros). Usa 1 si no se especifica.\" },\n            \"stock\": { \"type\": \"integer\", \"description\": \"Existencias. 0 si no se especifica.\" },\n            \"especificaciones\": { \"type\": \"object\", \"description\": \"Pares clave-valor con caracteristicas tecnicas, p. ej. { \\\"voltaje\\\": \\\"12V\\\" }. Objeto vacio si no hay.\" },\n            \"vehiculos\": {\n              \"type\": \"array\",\n              \"description\": \"Vehiculos compatibles\",\n              \"items\": {\n                \"type\": \"object\",\n                \"properties\": {\n                  \"modelo\": { \"type\": \"string\" },\n                  \"marca\": { \"type\": \"string\" },\n                  \"anio\": { \"type\": \"integer\", \"description\": \"Si el texto no menciona el año del vehículo, omite ese vehículo del array. Solo incluye vehículos con año explícito y mayor a 1900.\" }\n                },\n                \"required\": [\"modelo\", \"marca\", \"anio\"]\n              }\n            },\n            \"categorias\": { \"type\": \"array\", \"items\": { \"type\": \"string\" }, \"description\": \"Categorias del producto\" },\n            \"ciudades\": {\n              \"type\": \"array\",\n              \"description\": \"Ciudades donde esta disponible, con su estado\",\n              \"items\": {\n                \"type\": \"object\",\n                \"properties\": {\n                  \"ciudad\": { \"type\": \"string\", \"description\": \"Nombre de la ciudad, p. ej. Guadalajara\" },\n                  \"estado\": { \"type\": \"string\", \"description\": \"Estado al que pertenece la ciudad, p. ej. Jalisco\" }\n                },\n                \"required\": [\"ciudad\", \"estado\"]\n              }\n            }\n          },\n          \"required\": [\"marca\", \"modelo\", \"precio\"]\n        }\n      }\n    },\n    \"required\": [\"productos\"]\n  }",
         "options": {}
       },
       "type": "@n8n/n8n-nodes-langchain.informationExtractor",
       "typeVersion": 1.2,
       "position": [
-        680,
-        0
+        32,
+        208
       ],
-      "id": "b33e514d-841f-4abc-a894-0e3d25b6a570",
+      "id": "dbd6e17a-55cc-488d-a292-824ce7a8b86f",
       "name": "Extraer productos",
+      "retryOnFail": true,
       "notes": "Extrae todos los productos del texto al esquema de POST /productos. Salida: { output: { productos: [ ... ] } }."
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "output.productos",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        384,
+        208
+      ],
+      "id": "420904fe-c9ae-4f46-92bf-562c90c43ed7",
+      "name": "Separar productos",
+      "notes": "Divide el arreglo output.productos en un item por producto (transformación, no es un nodo de bucle). El nodo HTTP siguiente se ejecuta una vez por item de forma nativa."
     },
     {
       "parameters": {
@@ -102,15 +79,16 @@
           "mode": "list",
           "cachedResultName": "gpt-5.1"
         },
+        "builtInTools": {},
         "options": {}
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
       "position": [
-        680,
-        220
+        112,
+        432
       ],
-      "id": "c1d2e3f4-0000-4000-8000-000000000003",
+      "id": "4077e902-3ade-4683-afb8-41b93a454da4",
       "name": "Modelo de lenguaje",
       "credentials": {
         "openAiApi": {
@@ -122,18 +100,47 @@
     },
     {
       "parameters": {
-        "fieldToSplitOut": "output.productos",
+        "operation": "completion",
+        "completionTitle": "Información enviada con éxito",
+        "completionMessage": "Los productos han sido añadidos correctamente a la base de datos.",
         "options": {}
       },
-      "type": "n8n-nodes-base.splitOut",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
       "position": [
-        900,
-        0
+        832,
+        16
       ],
-      "id": "c1d2e3f4-0000-4000-8000-000000000004",
-      "name": "Separar productos",
-      "notes": "Divide el arreglo output.productos en un item por producto (transformación, no es un nodo de bucle). El nodo HTTP siguiente se ejecuta una vez por item de forma nativa."
+      "id": "eb9a0c69-dec5-47b1-a3bf-4035eb4cdb30",
+      "name": "Pantalla de éxito",
+      "webhookId": "347b46da-099f-412c-8ac1-04b17ef5ff1d"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        608,
+        208
+      ],
+      "id": "7ed94caa-ec07-4d0a-8b51-c4504d81a00b",
+      "name": "Enviar productos uno por uno"
+    },
+    {
+      "parameters": {
+        "amount": 0.5
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        832,
+        208
+      ],
+      "id": "843c26dc-d129-4ab6-bd53-be01f2c2bdf5",
+      "name": "Esperar medio segundo",
+      "webhookId": "3169054a-3d74-4b80-9f36-c446e8d30ec9"
     },
     {
       "parameters": {
@@ -141,45 +148,28 @@
         "url": "https://api-test-motomex.paosofiam.com/productos",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}",
-        "options": {}
+        "jsonBody": "={{ $json }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1120,
-        0
+        1056,
+        288
       ],
-      "id": "626dd16d-2666-43e4-964a-f870c53a010b",
-      "name": "Crear producto",
-      "notes": "POST /productos (find-or-create). Cada item es ya un objeto ProductoCreate; se envía tal cual. Se ejecuta una vez por producto."
+      "id": "4bac277b-fc69-49c0-8107-b9c1bdafe16d",
+      "name": "Crear Producto"
     }
   ],
   "pinData": {},
   "connections": {
-    "On form submission": {
-      "main": [
-        [
-          {
-            "node": "Extraer texto del archivo",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Extraer texto del archivo": {
-      "main": [
-        [
-          {
-            "node": "Preparar texto fuente",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Preparar texto fuente": {
+    "Al recibir documento": {
       "main": [
         [
           {
@@ -201,6 +191,17 @@
         ]
       ]
     },
+    "Separar productos": {
+      "main": [
+        [
+          {
+            "node": "Enviar productos uno por uno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Modelo de lenguaje": {
       "ai_languageModel": [
         [
@@ -212,11 +213,40 @@
         ]
       ]
     },
-    "Separar productos": {
+    "Enviar productos uno por uno": {
       "main": [
         [
           {
-            "node": "Crear producto",
+            "node": "Pantalla de éxito",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Esperar medio segundo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Esperar medio segundo": {
+      "main": [
+        [
+          {
+            "node": "Crear Producto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear Producto": {
+      "main": [
+        [
+          {
+            "node": "Enviar productos uno por uno",
             "type": "main",
             "index": 0
           }
@@ -224,14 +254,15 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate"
   },
-  "versionId": "61e35c21-6e8f-43b4-9e21-9c288aa02b2c",
+  "versionId": "ce0a1f25-7d20-47f2-8a34-9bf5dc3e2d6a",
   "meta": {
     "instanceId": "58b2e22eda324b1eaa9c8f8d7e8f4202f314c7175e1322e379fc803adb96312e"
   },
-  "id": "AKYnMJbawDpbDpZv",
+  "id": "OTsNn6qMwO3oqjNP",
   "tags": []
 }

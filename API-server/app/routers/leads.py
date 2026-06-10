@@ -21,34 +21,37 @@ from app.services import lead_service
 router = APIRouter(prefix="/leads", tags=["leads"])
 
 
-@router.get("", response_model=list[LeadResponse])
-def read_leads(
-    chat_whatsapp_id: str | None = None,
-    intencion_de_compra: str | None = None,
-    db: Session = Depends(get_db),
+@router.get(
+    "",
+    response_model=LeadResponse,
+    responses={404: {"model": ProblemDetail}},
+)
+def read_lead_by_whatsapp_id(
+    chat_whatsapp_id: str, db: Session = Depends(get_db)
 ) -> Any:
-    """Lista leads activos, con filtros opcionales por `chat_whatsapp_id` e `intencion_de_compra`."""
-    return lead_service.search(
-        db, chat_whatsapp_id=chat_whatsapp_id, intencion_de_compra=intencion_de_compra
-    )
+    """Devuelve el lead activo más reciente por `chat_whatsapp_id` (un solo objeto). 404 si no existe."""
+    return lead_service.get_by_chat_whatsapp_id(db, chat_whatsapp_id)
 
 
 @router.post(
     "",
     response_model=LeadResponse,
     status_code=status.HTTP_201_CREATED,
-    responses={422: {"model": ProblemDetail}},
+    responses={200: {"model": LeadResponse}, 422: {"model": ProblemDetail}},
 )
 def create_lead(
     payload: LeadCreate,
     response: Response,
     db: Session = Depends(get_db),
 ) -> Any:
-    """Crea un lead. Devuelve 201 + header `Location`. 422 solo si `intencion_de_compra_id` (Tier 1)
-    no resuelve o el `telefono` no es E.164. La ciudad (estado no reconocido) o los productos de interés
-    (modelo inexistente en inventario) que no se pudieron vincular se informan en el header `Warning`;
-    el lead se crea igual."""
-    lead, avisos = lead_service.create(db, payload)
+    """Crea un lead de forma idempotente. Si ya hay un lead activo con el mismo `chat_whatsapp_id`,
+    no crea uno nuevo: devuelve el existente con `200 OK`. Si no, lo crea y devuelve `201 Created`.
+    En ambos casos incluye el header `Location`. 422 solo si `intencion_de_compra_id` (Tier 1) no
+    resuelve o el `telefono` no es E.164. Al crear, la ciudad (estado no reconocido) o los productos
+    de interés (modelo inexistente en inventario) que no se pudieron vincular se informan en el header
+    `Warning`; el lead se crea igual."""
+    lead, avisos, creado = lead_service.create(db, payload)
+    response.status_code = status.HTTP_201_CREATED if creado else status.HTTP_200_OK
     response.headers["Location"] = f"/leads/{lead.id}"
     if avisos:
         response.headers["Warning"] = warning_header(avisos)

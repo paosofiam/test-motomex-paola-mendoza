@@ -1,14 +1,17 @@
 """Entidad Tier 3: leads — TABLA ORM.
 
-Definición de tabla pura: columnas + relationships + `get_by_id`. Las queries filtradas (`search`),
-la creación/actualización con resolución de catálogos y la reconciliación de las tablas de relación
-viven en `lead_service.py` (+ `core/resolvers.py`); el modelo no filtra ni orquesta.
+Definición de tabla pura: columnas + relationships + `get_by_id`. La consulta por `chat_whatsapp_id`
+(un solo objeto), la creación idempotente/actualización con resolución de catálogos y la
+reconciliación de las tablas de relación viven en `lead_service.py` (+ `core/resolvers.py`); el
+modelo no filtra ni orquesta.
 
 Notas de contrato (resueltas en la capa service):
-- `chat_id` y `estado` NO son columnas: son derivados de respuesta. `estado` se resuelve por
-  `ciudad → ciudades.estado_id → estados.estado` (relación `ciudad.estado` cargada); `chat_id` lo
-  provee `resolvers.get_active_chat_id` (consulta suelta).
-- `chat_whatsapp_id` es inmutable tras crear (no se acepta en update).
+- `chat_id`, `status` y `estado` NO son columnas: son derivados de respuesta. `estado` se resuelve por
+  `ciudad → ciudades.estado_id → estados.estado` (relación `ciudad.estado` cargada); `chat_id` y
+  `status` los provee `resolvers.get_active_chat` (chat activo, consulta suelta).
+- `chat_whatsapp_id` es inmutable tras crear (no se acepta en update) y es la clave de unicidad: solo
+  un lead activo por `chat_whatsapp_id` a la vez (`create` es idempotente; los leads no se borran vía
+  API).
 - `ciudad_id` llega ya resuelto desde `lead_service` (que aplica éxito parcial sobre el objeto
   `{ciudad, estado}`); `productos_interes` [string] es find-or-skip aditivo por modelo (un modelo
   puede matchear varios → se persisten todas las relaciones; los modelos sin match en inventario se

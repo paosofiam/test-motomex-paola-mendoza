@@ -9,17 +9,15 @@
         0,
         0
       ],
-      "id": "77b75fd6-ba9d-405a-b576-eef121012803",
+      "id": "ff1702dd-8ac7-4a63-9572-59bf62ec0473",
       "name": "Error Trigger",
       "notes": "Se dispara cuando un workflow que tenga configurado este como 'Error Workflow' falla. Expone $json.execution (id, url, error, lastNodeExecuted) y $json.workflow (id, name)."
     },
     {
       "parameters": {
-        "resource": "message",
-        "operation": "send",
+        "toRecipients": "admin@ejemplo.com",
         "subject": "=⚠️ Error en workflow n8n: {{ $json.workflow.name }}",
         "bodyContent": "=Se detuvo una ejecución por error.\n\nWorkflow: {{ $json.workflow.name }} (id {{ $json.workflow.id }})\nEjecución: {{ $json.execution.id }}\nNodo que falló: {{ $json.execution.lastNodeExecuted }}\nError: {{ $json.execution.error?.message }}\n\nRevisar la ejecución: {{ $json.execution.url }}",
-        "toRecipients": "admin@ejemplo.com",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.microsoftOutlook",
@@ -28,7 +26,7 @@
         208,
         0
       ],
-      "id": "18ddf5a9-9bd7-4718-a67a-3aca01c6573e",
+      "id": "6a85d835-fcd9-455e-8d50-6a91e6a8ae8d",
       "name": "Notificar admin por correo",
       "webhookId": "0fe64951-5c4b-4198-94d9-5c9c654f75de",
       "notes": "Requiere crear y seleccionar una credencial 'Microsoft Outlook OAuth2 API'. Reemplaza 'admin@ejemplo.com' por el correo real del administrador. El secreto NO se guarda en este JSON."
@@ -47,7 +45,7 @@
         416,
         0
       ],
-      "id": "d8fe3467-d4c9-48ff-8d64-77fb9f6b8c92",
+      "id": "f69c6ede-77ee-45ff-b701-fa22cba08aa6",
       "name": "Notificar admin por Telegram",
       "webhookId": "7631dadb-5b62-41d2-8057-c2a0bdbadc92",
       "credentials": {
@@ -73,7 +71,7 @@
         624,
         0
       ],
-      "id": "8ce299f1-cf08-43c6-a880-9afd2c760534",
+      "id": "79c74fa8-3d3e-4518-8edd-033c8be6ac84",
       "name": "Marcar chat en revisión humana",
       "notes": "Deja el chat afectado en chat_status_id=2 (en revisión), segun catalogo chat_statuses. LIMITACION: el Error Trigger NO expone de forma fiable el chat_id de la ejecucion fallida; debes proveerlo. Ajusta la URL para tomar el chat_id real (p. ej. propagandolo via static data del workflow de chatbot o parseandolo del contexto del error). Si no hay chat_id disponible, deshabilita este nodo."
     }
@@ -116,12 +114,13 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate"
   },
-  "versionId": "af9aa136-eb57-4c7c-8f05-ef3e4588d9f2",
+  "versionId": "50a56e2d-45d5-47c7-b644-17446b40f9ef",
   "meta": {
     "instanceId": "58b2e22eda324b1eaa9c8f8d7e8f4202f314c7175e1322e379fc803adb96312e"
   },
-  "id": "n75zy9XTM6BBMgxg",
+  "id": "kmavDLReeagfurIu",
   "tags": []
 }

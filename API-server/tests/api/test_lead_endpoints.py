@@ -28,7 +28,8 @@ def test_post_creates_with_location_and_derived_fields(client, seed_catalogs):
     """`ciudad` es Tier 2 (respuesta normalizada).
     `estado` es derivado: se resuelve por join ciudad → estados, no se almacena.
     `intencion_de_compra` es Tier 1: la respuesta devuelve el string.
-    `chat_id` es derivado: None mientras el lead no tenga chat activo.
+    `chat_id`/`status` son derivados: None mientras el lead no tenga chat activo.
+    `lead_id` es alias informativo (= id).
     """
     r = client.post("/leads", json=_payload(ciudad={"ciudad": "Guadalajara", "estado": "Jalisco"}))
     assert r.status_code == 201
@@ -37,7 +38,9 @@ def test_post_creates_with_location_and_derived_fields(client, seed_catalogs):
     assert body["ciudad"] == "guadalajara"
     assert body["estado"] == "Jalisco"
     assert isinstance(body["intencion_de_compra"], str) and body["intencion_de_compra"]
+    assert body["lead_id"] == body["id"]
     assert body["chat_id"] is None
+    assert body["status"] is None
 
 
 def test_post_unknown_estado_is_partial_success(client, seed_catalogs):
@@ -151,22 +154,43 @@ def test_patch_unknown_intencion_is_422(client, seed_catalogs):
     assert r.json()["field"] == "intencion_de_compra_id"
 
 
-def test_get_list_filters_by_chat_whatsapp_id(client, seed_catalogs):
-    client.post("/leads", json=_payload(chat_whatsapp_id="wa-A"))
+def test_get_by_chat_whatsapp_id_returns_single_object(client, seed_catalogs):
+    """GET por chat_whatsapp_id devuelve un único objeto (no lista), o 404 si no existe."""
+    created = client.post("/leads", json=_payload(chat_whatsapp_id="wa-A")).json()
     client.post("/leads", json=_payload(chat_whatsapp_id="wa-B", telefono="+5213300000000"))
-    res = client.get("/leads", params={"chat_whatsapp_id": "wa-A"}).json()
-    assert len(res) == 1 and res[0]["chat_whatsapp_id"] == "wa-A"
+    r = client.get("/leads", params={"chat_whatsapp_id": "wa-A"})
+    assert r.status_code == 200
+    body = r.json()
+    assert isinstance(body, dict)
+    assert body["id"] == created["id"] and body["chat_whatsapp_id"] == "wa-A"
+    assert client.get("/leads", params={"chat_whatsapp_id": "no-existe"}).status_code == 404
 
 
-def test_get_by_id_ok_404_and_chat_id_derived(client, seed_catalogs):
-    """`chat_id` es derivado: al crear un chat activo, aparece en la respuesta del lead (join, no columna)."""
+def test_post_is_idempotent_returns_existing_lead(client, seed_catalogs):
+    """Idempotente: 2º POST con el mismo chat_whatsapp_id → 200 + el lead existente, sin crear otro."""
+    a = client.post("/leads", json=_payload(chat_whatsapp_id="wa-dup", nombre="Uno"))
+    b = client.post("/leads", json=_payload(chat_whatsapp_id="wa-dup", nombre="Dos"))
+    assert a.status_code == 201
+    assert b.status_code == 200
+    assert b.headers["location"] == f"/leads/{a.json()['id']}"
+    assert b.json()["id"] == a.json()["id"]
+    assert b.json()["nombre"] == "Uno"  # body ignorado: devuelve el existente
+
+
+def test_get_by_id_ok_404_and_chat_id_and_status_derived(client, seed_catalogs):
+    """`chat_id` y `status` son derivados del chat activo (join, no columnas): None hasta que existe
+    un chat, y reflejan ese chat una vez creado."""
     lead = client.post("/leads", json=_payload()).json()
-    assert client.get(f"/leads/{lead['id']}").status_code == 200
+    sin_chat = client.get(f"/leads/{lead['id']}")
+    assert sin_chat.status_code == 200
+    assert sin_chat.json()["chat_id"] is None and sin_chat.json()["status"] is None
     assert client.get("/leads/999999").status_code == 404
     chat = client.post("/chats", json={
         "lead_id": lead["id"], "chat_whatsapp_id": lead["chat_whatsapp_id"], "chat_status_id": 1,
     }).json()
-    assert client.get(f"/leads/{lead['id']}").json()["chat_id"] == chat["id"]
+    con_chat = client.get(f"/leads/{lead['id']}").json()
+    assert con_chat["chat_id"] == chat["id"]
+    assert con_chat["status"] == chat["status"]
 
 
 def test_patch_partial_updates_and_refreshes_timestamp(client, seed_catalogs, db):

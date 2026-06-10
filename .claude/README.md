@@ -7,7 +7,7 @@ Configuración de Claude Code que asegura que toda implementación del backend r
 - **`settings.json`** — allowlist de comandos de desarrollo seguros (venv, pip, uvicorn, alembic, git de solo lectura) para reducir prompts de permiso; deny de lectura de `.env`.
 - **`skills/`** — capacidades invocadas por Claude según la tarea:
   - `motomex-modelo-datos` — crear/editar modelos SQLAlchemy, migraciones Alembic y seeders (columnas estándar, FKs `_id`, dinero en centavos, soft delete, matriz de métodos, índices/UNIQUE).
-  - `motomex-controlador-api` — crear/editar controladores/routers FastAPI y schemas (REST sin wrapper, RFC 7807, `Location`, conversión MXN, Tier 1/2/3, find-or-create/find-or-fail).
+  - `motomex-controlador-api` — crear/editar la capa de API: routers FastAPI y schemas (el proyecto **no** tiene controllers; el nombre de la skill es histórico). REST sin wrapper, RFC 7807, `Location`, conversión MXN, Tier 1/2/3, find-or-create/find-or-fail.
   - `motomex-revision-cumplimiento` — auditar el diff contra las specs antes de commit/PR.
   - `motomex-tests` — crear/editar pruebas pytest (stack síncrono: `TestClient`, sin async/auth) que verifican los invariantes de specs: dinero MXN/centavos, soft delete, columnas estándar, matriz de métodos, Tier 1/2/3, find-or-create/find-or-fail, RFC 7807 y reglas de chats/leads.
 

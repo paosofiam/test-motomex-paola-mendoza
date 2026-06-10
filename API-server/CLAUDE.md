@@ -4,7 +4,7 @@ Reglas **vinculantes** para implementar el backend. Complementan el `CLAUDE.md` 
 
 Para construir una capa, invoca la skill correspondiente:
 - Modelos / migraciones / seeders → skill **`motomex-modelo-datos`**
-- Controladores / routers / schemas → skill **`motomex-controlador-api`**
+- Routers / schemas (la capa de API; este proyecto **no** tiene controllers) → skill **`motomex-controlador-api`**
 - Antes de hacer commit → skill **`motomex-revision-cumplimiento`**
 
 ## Decisiones canónicas (resuelven "Observaciones de revisión" de er_diagram.md)
@@ -12,9 +12,10 @@ Para construir una capa, invoca la skill correspondiente:
 1. **FKs con sufijo `_id` en TODAS las tablas.** Aunque la lista de entidades del diagrama las nombra sin sufijo (`marca`, `moneda`, `ciudad`, `intencion_de_compra`, `estado`), el storage real usa `<entidad>_id`: `marca_id`, `moneda_id`, `ciudad_id`, `intencion_de_compra_id`, `estado_id`, `chat_status_id`, `lead_id`, `producto_id`, `vehiculo_id`, `categoria_id`, `pre_orden_id`. El nombre **de dominio sin sufijo** (`marca`, `moneda`, `ciudad`, `estado`, `intencion_de_compra`) se usa solo en el **contrato externo** (JSON de respuesta), resuelto vía join.
 2. **`productos.moneda_id`**: `FK int NOT NULL DEFAULT 1` (1 = MXN). No existe columna `moneda` string en la tabla. La respuesta devuelve `"moneda": "<abreviacion>"` resuelto por join.
 3. **`pre_ordenes` NO lleva `moneda_id`.** `total` se persiste en **MXN ya convertido** (centavos). La conversión ocurre al calcular el total, no al leer.
-4. **`leads` NO tiene columna `chat_id` ni `estado`/`estado_id`.** Ambos son campos **derivados de respuesta**:
-   - `chat_id` = id del chat activo más reciente del lead (`chats` join `WHERE lead_id=? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`).
+4. **`leads` NO tiene columna `chat_id`, `status` ni `estado`/`estado_id`.** Son campos **derivados de respuesta**:
+   - `chat_id` y `status` = del chat activo más reciente del lead (`resolvers.get_active_chat`: `chats` join `WHERE lead_id=? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`; `chat_id` = su `id`, `status` = su `chat_status` string). Null si no hay chat activo.
    - `estado` = join transitivo `leads.ciudad_id → ciudades.estado_id → estados.estado`.
+   - `lead_id` (en la respuesta) = alias de `id`; análogamente `Chat` expone `chat_id` = alias de su `id`. Identificadores cruzados informativos, no columnas.
 5. **`leads.productos_interes[]`**: find-or-skip **aditivo** por `productos.modelo`. El lead SIEMPRE se crea/edita: un modelo que no existe en inventario **no** falla (no es find-or-fail ni find-or-create: el inventario no se inventa por interés del cliente), se **omite** y se reporta como aviso en el header `Warning` (mismo patrón de éxito parcial que `ciudades`). Si un modelo matchea varios productos, se persiste la relación en `leads_productos` con **todos** los matches → `leads_productos` puede tener más filas que strings recibidos. En `PATCH` la vinculación es **aditiva** (combina con lo existente, nunca reemplaza ni borra; body vacío/omitido = sin cambios; no hay remoción vía API). Misma semántica aditiva aplica a `leads.vehiculo[]`.
 6. **`chats` inmutables tras crear**: `PATCH /chats/{id}` solo toca `chat_status_id` y `resumen`. `lead_id` y `chat_whatsapp_id` nunca se actualizan (valídalo a nivel ORM/schema).
 7. **Índices obligatorios** (créalos en la migración):
@@ -32,7 +33,7 @@ Para construir una capa, invoca la skill correspondiente:
 - **Soft delete only**: delete ⇒ set `deleted_at`. Activo ⇔ `deleted_at IS NULL`. **Toda** query filtra `deleted_at IS NULL`.
 - **Catálogos sin delete alguno**: `marcas`, `monedas`, `ciudades`, `estados`, `vehiculos`, `categorias`, `intenciones_de_compra_de_leads`, `chat_statuses`. Crecen solo por find-or-create.
 - **Columnas estándar en TODAS las tablas** (incl. relación): `id` PK, `created_at`, `updated_at`, `deleted_at` (null). `create` ⇒ `created_at == updated_at`. `update` ⇒ refresca `updated_at`.
-- **Un chat activo por lead**: crear chat nuevo exige soft-delete del previo. `get_by_lead`/`get_by_chat_whatsapp_id` ⇒ `ORDER BY created_at DESC LIMIT 1`.
+- **Un activo por `chat_whatsapp_id` (leads y chats)**: `POST` es **idempotente** — si ya existe uno activo (chats: por `lead_id` **o** `chat_whatsapp_id`; leads: por `chat_whatsapp_id`), se devuelve el existente con `200 OK` (en vez de `201`), sin crear ni borrar. `create` **NUNCA** soft-deletea el previo: reemplazar un chat exige `DELETE`; los leads no se borran vía API. Consultas por `chat_whatsapp_id`/`lead_id` ⇒ `ORDER BY created_at DESC LIMIT 1`. La unicidad se valida en service (no UNIQUE parcial en MySQL) ⇒ pequeña ventana TOCTOU.
 - **Vehículos siempre como objeto** `{modelo, marca, anio}` en requests y responses; nunca id opaco. Identidad = UNIQUE `(modelo, marca_id, anio)`.
 - **REST sin wrapper**: el body de éxito es el recurso. Errores = RFC 7807 `application/problem+json`. POST ⇒ header `Location`. PATCH ⇒ recurso completo.
 
@@ -63,10 +64,11 @@ precedente es `producto`.
 
 `EstadoModel` no tiene ni `get_by_id` (se resuelve por `resolvers.find_estado`, por nombre o
 abreviación). Equivalencias service (antes método de modelo): `ProductoModel.search`/`create`/`delete`
-→ `producto_service`; `LeadModel.search`/`create`/`update` → `lead_service` (`lead_service.search`
-respalda `GET /leads`); `ChatModel.get_by_chat_whatsapp_id`/`get_by_lead`/`create`/`update`/`delete`
-→ `chat_service` (el chat activo más reciente con `ORDER BY created_at DESC LIMIT 1`; un solo chat
-activo por lead); `PreOrdenModel.create` → `pre_orden_service`; el `create` de cada catálogo Tier 2 →
+→ `producto_service`; `LeadModel.create`/`update`/`get_by_chat_whatsapp_id` → `lead_service`
+(`create` idempotente por `chat_whatsapp_id`; `get_by_chat_whatsapp_id` devuelve un solo objeto y
+respalda `GET /leads`; leads sin `delete`); `ChatModel.get_by_chat_whatsapp_id`/`create`/`update`/`delete`
+→ `chat_service` (el chat activo más reciente con `ORDER BY created_at DESC LIMIT 1`; `create`
+idempotente por `lead_id` o `chat_whatsapp_id`, sin soft-delete del previo); `PreOrdenModel.create` → `pre_orden_service`; el `create` de cada catálogo Tier 2 →
 `resolvers.find_or_create_*` (normaliza), y los Tier 1 crecen solo por seeder. La reconciliación
 genérica de tablas de relación vive en `resolvers.sync_link_rows`.
 

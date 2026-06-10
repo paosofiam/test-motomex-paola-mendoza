@@ -1,9 +1,12 @@
 ---
 name: motomex-controlador-api
-description: Usar al crear o modificar la CAPA DE API del backend Motomex (API-server) — controladores/routers FastAPI, schemas Pydantic de request/response, manejo de errores, o cualquier endpoint de /productos, /leads, /chats, /pre_ordenes. Garantiza REST sin wrapper, errores RFC 7807, header Location, conversión de precios a MXN, política Tier 1/2/3 y find-or-create/find-or-fail definidos en API-server/specs.
+description: Usar al crear o modificar la CAPA DE API del backend Motomex (API-server) — routers FastAPI, schemas Pydantic de request/response, manejo de errores, o cualquier endpoint de /productos, /leads, /chats, /pre_ordenes. Garantiza REST sin wrapper, errores RFC 7807, header Location, conversión de precios a MXN, política Tier 1/2/3 y find-or-create/find-or-fail definidos en API-server/specs.
 ---
 
-# Capa de API Motomex (controladores · routers · schemas)
+# Capa de API Motomex (routers · schemas)
+
+> Este proyecto **no tiene controllers** (FastAPI no es MVC): la capa de API son los **routers**
+> (frontera HTTP) que delegan en los **services**. El nombre de esta skill es histórico.
 
 Asegura que cada endpoint cumpla `API-server/specs/endpoints.md` (tabla de endpoints, formatos, política Tier/resolución) y los por qués de `contracts.md`. Decisiones canónicas en `API-server/CLAUDE.md`.
 
@@ -12,13 +15,13 @@ Asegura que cada endpoint cumpla `API-server/specs/endpoints.md` (tabla de endpo
 1. Localiza el endpoint en la **tabla de `endpoints.md`**: método, status de éxito, query params, body de petición, body de respuesta (alias `Producto`/`Lead`/`Chat`/`PreOrden`).
 2. Identifica el Tier de cada campo del body (define si viaja por id o por string).
 3. Decide find-or-create vs find-or-fail por campo (ver abajo).
-4. Nombres: archivo `*_controller.py`, clase `*Controller`, instancia `*_router` (español: `ProductoController`, `producto_router`).
+4. Nombres: archivo de router plural por recurso (`productos.py`, `leads.py`) con instancia `router = APIRouter(...)`; la lógica vive en el service `*_service.py` (funciones de módulo, p. ej. `producto_service.create(db, payload)`). **No** hay archivos `*_controller.py` ni clases `*Controller`.
 
 ## Contrato REST (no negociable)
 
 - **Sin wrapper**: el body de éxito ES el recurso (`Producto`) o un array plano (`[Producto]`). Nunca `{"data": ..., "success": true}`.
 - **Status como única señal de éxito**: usa los de la tabla (`200`, `201`, `204`).
-- **POST** ⇒ status `201` + header `Location: /<recurso>/{id}`.
+- **POST** ⇒ status `201` + header `Location: /<recurso>/{id}`. Excepción **idempotente** (`/leads`, `/chats`): si el recurso ya existía, `200 OK` + el existente (con `Location`), sin crear ni borrar.
 - **PATCH** ⇒ `200` + recurso completo ya actualizado.
 - **DELETE** ⇒ `204` sin body (y es **soft delete**).
 - `Content-Type: application/json` en éxito.
@@ -72,8 +75,9 @@ def normalizar(s: str) -> str:
 - **find-or-create** (catálogo conversacional, captura fluida):
   - `POST /productos`: `marca` (string), `vehiculos[]` (`{modelo,marca,anio}` — cascada: si la `marca` del vehículo no existe, créala), `categorias[]`, `ciudades[]`.
   - `POST/PATCH /leads`: campo `vehiculo[]` (misma cascada sobre `marca`).
+- **find-or-skip aditivo** (éxito parcial, NO find-or-fail):
+  - `leads.productos_interes[]` por `productos.modelo`: un modelo que no exista en inventario se **omite** con header `Warning` y el lead se crea/actualiza igual (status normal `201`/`200`); si matchea **varios** productos, persiste la relación con **todos**. En `PATCH` es aditivo (combina con lo existente, no reemplaza).
 - **find-or-fail** (todo lo demás). Si no resuelve ⇒ `422` con `field`+`value_received`.
-  - `leads.productos_interes[]`: find-or-fail por `productos.modelo`. Si matchea **varios** productos, persiste la relación con **todos** (no falles por ambigüedad).
   - `pre_ordenes.productos[].producto_id`: exige `id` exacto, **sin** resolución por string. Si no existe ⇒ `422`/`404`.
 
 ## Vehículos
@@ -81,9 +85,10 @@ Siempre objeto `{modelo, marca, anio}` en request y response (nunca id opaco). R
 
 ## Reglas específicas por recurso
 
-- **`GET /leads`** respuesta incluye `chat_id` (chat activo más reciente, join) y `estado` (derivado `ciudad→ciudades.estado_id→estados.estado`). **Nunca** aceptes `estado` en el body.
-- **`GET /chats?chat_whatsapp_id=`** y **`GET /chats/{id}`** devuelven **un solo** chat (el más reciente, `created_at DESC LIMIT 1`).
-- **`POST /chats`**: si el lead ya tiene chat activo, soft-delete del previo antes de crear el nuevo (un chat activo por lead).
+- **`GET /leads?chat_whatsapp_id=`** y **`GET /leads/{id}`** devuelven **un solo** lead (no lista; `created_at DESC LIMIT 1`, `404` si no hay). La respuesta incluye `lead_id` (alias de `id`), `chat_id` y `status` (del chat activo, join; null si no hay), y `estado` (derivado `ciudad→ciudades.estado_id→estados.estado`). **Nunca** aceptes `estado` en el body. No hay listado general ni filtro por `intencion_de_compra`.
+- **`POST /leads`** es **idempotente** por `chat_whatsapp_id`: si ya hay un lead activo con ese `chat_whatsapp_id`, devuelve el existente con `200 OK` (no crea); si no, lo crea con `201`. Header `Location` en ambos. Los leads **no** se borran (no hay `DELETE /leads`).
+- **`GET /chats?chat_whatsapp_id=`** y **`GET /chats/{id}`** devuelven **un solo** chat (el más reciente, `created_at DESC LIMIT 1`, `404` si no hay). La respuesta incluye `chat_id` (alias de `id`), `lead_id` y `status` (string Tier 1).
+- **`POST /chats`** es **idempotente**: si ya hay un chat activo con el mismo `lead_id` **o** `chat_whatsapp_id`, devuelve el existente con `200 OK`, **sin crear ni borrar**; si no, lo crea con `201`. Header `Location` en ambos. Reemplazar un chat exige `DELETE /chats/{id}` primero — `create` nunca borra el anterior.
 - **`PATCH /chats/{id}`**: solo `chat_status_id` y `resumen`. Rechaza/ignora intentos de cambiar `lead_id` o `chat_whatsapp_id` (inmutables).
 - **`POST /productos`** body usa `moneda_id` (Tier 1); response devuelve `"moneda": "<abreviacion>"` (string) y `precio` en MXN.
 - **Todas las queries** filtran `deleted_at IS NULL`.
@@ -91,27 +96,42 @@ Siempre objeto `{modelo, marca, anio}` en request y response (nunca id opaco). R
 ## Esqueleto de router
 
 ```python
-# app/controllers/producto_controller.py
+# app/routers/productos.py
 from fastapi import APIRouter, Depends, status, Response
 from sqlalchemy.orm import Session
 from app.database import get_db
+from app.services import producto_service
 
-producto_router = APIRouter(prefix="/productos", tags=["productos"])
+router = APIRouter(prefix="/productos", tags=["productos"])
 
-@producto_router.post("", status_code=status.HTTP_201_CREATED, response_model=ProductoOut)
-def crear_producto(payload: ProductoCreate, response: Response, db: Session = Depends(get_db)):
-    producto = ProductoController(db).create(payload)   # find-or-create de marca/vehiculos/categorias/ciudades
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=ProductoResponse)
+def create_producto(payload: ProductoCreate, response: Response, db: Session = Depends(get_db)):
+    producto = producto_service.create(db, payload)   # find-or-create de marca/vehiculos/categorias/ciudades
     response.headers["Location"] = f"/productos/{producto.id}"
     return producto   # precio ya en MXN, sin wrapper
 ```
 
-Registra cada `*_router` en `app/main.py` con `app.include_router(...)`.
+Para endpoints **idempotentes** (`POST /leads`, `POST /chats`), el service devuelve `(recurso, creado)`
+y el router fija el status según se haya creado o devuelto el existente:
+
+```python
+# app/routers/chats.py  (instancia: router = APIRouter(prefix="/chats", ...))
+@router.post("", status_code=status.HTTP_201_CREATED,
+             responses={200: {"model": ChatResponse}})
+def create_chat(payload: ChatCreate, response: Response, db: Session = Depends(get_db)):
+    chat, creado = chat_service.create(db, payload)   # idempotente: por lead_id O chat_whatsapp_id
+    response.status_code = status.HTTP_201_CREATED if creado else status.HTTP_200_OK
+    response.headers["Location"] = f"/chats/{chat.id}"
+    return chat
+```
+
+Registra el `router` de cada recurso en `app/main.py` con `app.include_router(modulo.router)`.
 
 ## Checklist antes de terminar
 - [ ] Status correcto; POST con `Location`; sin wrapper; arrays planos.
 - [ ] Errores en problem+json con `field`/`value_received` donde aplica.
 - [ ] Precios convertidos a MXN; `int` centavos en toda la respuesta.
 - [ ] Tier respetado por campo; normalización Tier 2 idéntica en find y create.
-- [ ] find-or-create / find-or-fail correcto por campo; `productos_interes` multi-match; pre_ordenes solo por id.
-- [ ] `estado`/`chat_id` derivados (no en body); chats devuelven 1; un chat activo por lead.
+- [ ] find-or-create / find-or-skip / find-or-fail correcto por campo; `productos_interes` multi-match; pre_ordenes solo por id.
+- [ ] `estado`/`chat_id`/`status`/`lead_id` derivados o alias (no en body); `GET /leads` y `GET /chats` devuelven 1 objeto; `POST /leads` y `POST /chats` idempotentes (200 si ya existía, sin crear ni borrar); `leads` sin `DELETE`.
 - [ ] Queries filtran `deleted_at IS NULL`.

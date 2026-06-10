@@ -249,16 +249,18 @@ def resolver_productos_interes(db: Session, modelos: list[str]) -> "tuple[list[i
     return producto_ids, avisos
 
 
-def get_active_chat_id(db: Session, lead_id: int) -> int | None:
-    """Id del chat activo más reciente del lead (campo derivado `Lead.chat_id`).
+def get_active_chat(db: Session, lead_id: int) -> "ChatModel | None":
+    """Chat activo más reciente del lead (respalda los campos derivados `Lead.chat_id` y `Lead.status`).
 
     `chats WHERE lead_id=? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`.
-    Consulta suelta (no método de ChatModel) para preservar la matriz de métodos.
+    Consulta suelta (no método de ChatModel) para preservar la matriz de métodos. Devuelve la fila
+    completa para que el llamador derive tanto el id como el status del chat (vía el join
+    `chat_status`, ya `lazy="joined"`) sin una segunda consulta.
     """
     from app.models.chat_model import ChatModel
 
     return db.scalar(
-        select(ChatModel.id)
+        select(ChatModel)
         .where(ChatModel.lead_id == lead_id, ChatModel.deleted_at.is_(None))
         .order_by(ChatModel.created_at.desc())
         .limit(1)

@@ -1,7 +1,8 @@
 """Factories mínimas para reducir el setup repetido en los tests.
 
 Cada helper delega en la CAPA SERVICE (`*_service.create`), que es donde vive ahora la creación
-(resolución de catálogos, reconciliación de relaciones, regla de un chat activo por lead). Devuelven
+(resolución de catálogos, reconciliación de relaciones, creación idempotente: un activo por
+`chat_whatsapp_id`). Devuelven
 la instancia ORM (vía `get_by_id`) porque los tests consumen atributos del modelo (`.id`,
 `.deleted_at`, relaciones). Requieren la fixture `seed_catalogs` cuando dependen de FKs de catálogo.
 """
@@ -24,7 +25,7 @@ def make_lead(
     intencion_de_compra_id=1,
     **extra,
 ):
-    resp, _ = lead_service.create(
+    resp, _, _ = lead_service.create(
         db,
         LeadCreate(
             chat_whatsapp_id=chat_whatsapp_id,
@@ -46,7 +47,7 @@ def make_producto(db, *, marca="Nissan", modelo="Versa", precio=12999, moneda_id
 
 
 def make_chat(db, *, lead_id, chat_whatsapp_id="wa-001", chat_status_id=1, **extra):
-    resp = chat_service.create(
+    resp, _ = chat_service.create(
         db,
         ChatCreate(lead_id=lead_id, chat_whatsapp_id=chat_whatsapp_id, chat_status_id=chat_status_id, **extra),
     )

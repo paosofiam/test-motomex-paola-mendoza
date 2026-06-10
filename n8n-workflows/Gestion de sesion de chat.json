@@ -3,34 +3,47 @@
   "nodes": [
     {
       "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "message_chat_id",
+              "type": "any"
+            },
+            {
+              "name": "message_from_first_name",
+              "type": "any"
+            },
+            {
+              "name": "message_text",
+              "type": "any"
+            }
+          ]
+        }
+      },
+      "id": "886577de-6232-46ef-9bb2-d042de840fb1",
+      "typeVersion": 1.1,
+      "name": "Start",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        -432,
+        384
+      ]
+    },
+    {
+      "parameters": {
         "url": "=https://api-test-motomex.paosofiam.com/leads?chat_whatsapp_id={{ $('Start').item.json.message_chat_id }}",
         "options": {}
       },
-      "id": "c325f111-96bb-40ba-a41e-df545000fa22",
+      "id": "529d45b5-64c1-4fd0-8a5c-453b6c7df180",
       "name": "Obtener Lead",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        224,
-        448
+        240,
+        464
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "url": "=https://api-test-motomex.paosofiam.com/chats?chat_whatsapp_id={{ $('Start').item.json.message_chat_id }}",
-        "options": {}
-      },
-      "id": "80635c6a-b2bc-4220-a5d6-368ed06adf66",
-      "name": "Obtener chat",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        -224,
-        384
-      ],
-      "alwaysOutputData": true,
+      "executeOnce": true,
       "onError": "continueRegularOutput"
     },
     {
@@ -61,11 +74,12 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        0,
+        16,
         384
       ],
-      "id": "7311e0e2-ad2f-4afc-895f-063359b4f784",
-      "name": "Si el chat existe"
+      "id": "8f9e492d-0d3d-4963-8930-e273c6e21348",
+      "name": "Si el chat existe",
+      "alwaysOutputData": false
     },
     {
       "parameters": {
@@ -79,12 +93,21 @@
           "conditions": [
             {
               "id": "fcb95918-6d84-4d2b-bf96-e1bf86e5290c",
-              "leftValue": "={{ Array.isArray($('Obtener Lead').item.json) && $('Obtener Lead').item.json.length > 0 }}",
+              "leftValue": "={{ $json.id }}",
               "rightValue": "",
               "operator": {
-                "type": "boolean",
-                "operation": "true",
+                "type": "number",
+                "operation": "exists",
                 "singleValue": true
+              }
+            },
+            {
+              "id": "64495030-e12d-4a1d-a30c-c45fe3c9f217",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
               }
             }
           ],
@@ -95,30 +118,12 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        448,
-        448
+        464,
+        464
       ],
-      "id": "12db94f1-f606-46b2-b47b-6cb245f744cc",
-      "name": "Si el lead existe"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://api-test-motomex.paosofiam.com/chats",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={ \"lead_id\": {{ $('Obtener Lead').item.json[0] ? $('Obtener Lead').item.json[0].id : $('Crear lead').item.json.id }}, \"chat_whatsapp_id\": \"{{ $('Start').item.json.message_chat_id }}\", \"chat_status_id\": 1, \"resumen\": \"Conversacion iniciada desde Telegram\" }",
-        "options": {}
-      },
-      "id": "85d4fb10-9462-4838-b92b-3a50340978af",
-      "name": "Crear chat",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        896,
-        448
-      ],
-      "notes": "lead_id dinamico: si 'Obtener Lead' devolvio el lead (array no vacio) usa su id; si no, usa el id de 'Crear lead'. chat_status_id=1 (activo)."
+      "id": "5d4aa2ce-4374-4320-9cf9-22237bbb1e7c",
+      "name": "Si el lead existe",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -129,56 +134,31 @@
         "jsonBody": "={ \"chat_whatsapp_id\": \"{{ $('Start').item.json.message_chat_id }}\", \"nombre_whatsapp\": \"{{ $('Start').item.json.message_from_first_name }}\", \"telefono\": \"+520000000000\", \"intencion_de_compra_id\": 1, \"nombre\": null, \"ciudad\": null, \"productos_interes\": [], \"vehiculo\": [], \"direccion_envio\": null }",
         "options": {}
       },
-      "id": "faea8886-ba54-4d81-a275-291107d32fb7",
+      "id": "42bea151-11bd-47e0-ba89-9e47859565a4",
       "name": "Crear lead",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        672,
+        688,
         528
       ],
+      "executeOnce": true,
       "notes": "telefono es OBLIGATORIO (patron +<digitos>, max 14). Placeholder +520000000000: reemplazalo por el real. ciudad es find-or-fail: si la envias, debe existir en el catalogo."
     },
     {
       "parameters": {
-        "model": {
-          "__rl": true,
-          "value": "gpt-5.1",
-          "mode": "list",
-          "cachedResultName": "gpt-5.1"
-        },
-        "builtInTools": {},
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        1472,
-        608
-      ],
-      "id": "19438f53-2b42-4388-a84e-2adf57f398f8",
-      "name": "Modelo de lenguaje",
-      "credentials": {
-        "openAiApi": {
-          "id": "5qdKwEbacAyy64JO",
-          "name": "OpenAI account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "text": "=Historial de la conversación:\n{{ $('Obtener Historial de Chat').item.json.messagesCount ? $('Obtener Historial de Chat').item.json.messages.map(m => `${m.role}: ${m.content}`).join('\\n') : \"No hay mensajes previos, el mensaje recibido es el primero\" }}\n\nMensaje actual del usuario:\n{{ $('Start').item.json.message_text }}",
+        "text": "=Historial de la conversación:\n{{ { \"historial\": $('Obtener Historial de Chat').item.json.messagesCount ? $('Obtener Historial de Chat').item.json.messages.map(m => `${Object.keys(m)[0]}: ${Object.values(m)[0]}`).join('\\n') : \"No hay mensajes previos, el mensaje recibido es el primero\" } }}\n\nMensaje actual del usuario:\n{{ $('Start').item.json.message_text }}",
         "schemaType": "manual",
-        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"requiere_respuesta\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si el mensaje actual es legible, una oración coherente o más, y puede obtenerse información de este como preguntas, afirmaciones, saludos y/o despedidas, etc. False si el mensaje es una muletilla o un mensaje ilegible del estilo 'mmm', '...', 'asdf', '#_',\"\n    },\n  \"tiene_preguntas\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si el mensaje actual contiene una pregunta directa o implícita sobre productos, precios, marcas, envíos o cualquier otro tema relacionado con la venta de refacciones y autopartes.\"\n    },\n  \"pausa_conversacion\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si: (a) el usuario pide explícitamente pausar o esperar (p. ej. 'dame 5 minutos', 'ahora vuelvo', 'voy y vuelvo'), AUNQUE el mensaje sea legible; o (b) el mensaje es una muletilla o ilegible como 'mmm', '...', 'asdf'. False en cualquier otro caso: cuando es un mensaje normal que debe responderse (saludo, pregunta o afirmación) y no es ni una pausa explícita ni una muletilla. Nota: un mensaje legible que pide pausa SÍ es true (no lo trates como false por ser legible).\"\n    },\n  \"confirma_compra\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si según el historial de la conversación, en el último mensae previo, se le había solicitado confirmar el registro de su orden de compra, y se le había informado el precio final e items de su orden, y el usuario confirmó o afirmó en el mensaje actual.\"\n    },\n  \"fin_de_conversacion\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si el usuario utiliza palabras de despedida explícitas al final o en cualquier parte del mensaje actual, se implica que es el último mensaje de la conversación o el usuario trata de escribir alguna clase de comando de terminal para finalizar la conversación o algo por el estilo. También true si ya se confirmó y registró orden de compra y no hay más acciones pendientes por realizar o revisar según el historial de la conversación.\"\n    },\n  \"requiere_soporte\": {\n      \"type\": \"boolean\",\n      \"description\": \"True ÚNICAMENTE si: (a) el usuario solicita explícitamente en el mensaje actual hablar con un humano, asesor o ejecutivo, o (b) hay un problema técnico o error del sistema que impide responder al usuario. NO lo marques true solo porque una compra se haya confirmado o registrado (ese caso lo maneja 'confirma_compra'). Es independiente de 'fin_de_conversacion'.\"\n    },\n  \"cambio_en_intencion\": {      \"type\": \"boolean\",\n      \"description\": \"True si se detecta en el mensaje actual, que hay un cambio tangible en la intención de comrpa del cliente con respecto a los últimos mensajes previos en el historial de la conversación, ya sea que este aumente o disminuya por igual. false si la intención de compra es esencialmente igual que en los últimos mensajes del historial.\"\n  },\n  \"intencion_de_compra\": {\n    \"type\": \"int\",\n    \"description\": \"Califica la intención de compra del cliente o su interés en los productos o servicios ofrecidos por la marca, o dicho de otra forma, su probabilidad de compra, en una escala del 1 al 3 donde 1 es una intención o probabilidad de compra baja, 2 es una intención de compra media o moderada, y 3 es una, alta o muy alta intención o probabilidad de compra. 1 Si el cliente solo saluda o escribe cualquier mensaje sin preguntas en el mensaje actual. 2 Si el cliente hace preguntas vagas sobre el producto o expresa directa o implícitamente una urgencia baja o nula por comprar. 3 Si el cliente muestra un claro y gran interés en sus productos o expresa directa o implícitamente urgencia por adquirir un producto o ya ha hecho muchas preguntas, más de alrededor de 7, o ha enviado muchos mensajes, más de alrededor de 15.\"\n  } \n  },\n  \"required\": [\n  \"requiere_respuesta\",\n  \"tiene_preguntas\",\n  \"pausa_conversacion\",\n  \"confirma_compra\",\n  \"fin_de_conversacion\",\n  \"requiere_soporte\",\n  \"cambio_en_intencion\",\n  \"intencion_de_compra\"\n  ]\n}",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"requiere_respuesta\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si el mensaje actual es legible, una oración coherente o más, y puede obtenerse información de este como preguntas, afirmaciones, saludos y/o despedidas, etc. False si el mensaje es una muletilla o un mensaje ilegible del estilo 'mmm', '...', 'asdf', '#_', etc. Todo mensaje coherente requiere respuesta, así sea para aclarar a qué se refería el usuario con ese mensaje\"\n    },\n  \"tiene_preguntas\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si el mensaje actual contiene una pregunta directa o implícita sobre productos, precios, marcas, envíos o cualquier otro tema relacionado con la venta de refacciones y autopartes.\"\n    },\n  \"pausa_conversacion\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si: (a) el usuario pide explícitamente pausar o esperar (p. ej. 'dame 5 minutos', 'ahora vuelvo', 'voy y vuelvo'), AUNQUE el mensaje sea legible; o (b) el mensaje es una muletilla o ilegible como 'mmm', '...', 'asdf'. False en cualquier otro caso: cuando es un mensaje normal que debe responderse (saludo, pregunta o afirmación) y no es ni una pausa explícita ni una muletilla. Nota: un mensaje legible que pide pausa SÍ es true (no lo trates como false por ser legible).\"\n    },\n  \"confirma_compra\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si según el historial de la conversación, en el último mensae previo, se le había solicitado confirmar el registro de su orden de compra, y se le había informado el precio final e items de su orden, y el usuario confirmó o afirmó en el mensaje actual.\"\n    },\n  \"fin_de_conversacion\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si el usuario utiliza palabras de despedida explícitas al final o en cualquier parte del mensaje actual, se implica que es el último mensaje de la conversación o el usuario trata de escribir alguna clase de comando de terminal para finalizar la conversación o algo por el estilo. También true si ya se confirmó y registró orden de compra y no hay más acciones pendientes por realizar o revisar según el historial de la conversación.\"\n    },\n  \"requiere_soporte\": {\n      \"type\": \"boolean\",\n      \"description\": \"True el usuario solicita explícitamente en el mensaje actual hablar con un humano, asesor o ejecutivo, o hay un problema técnico o error del sistema que impide responder al usuario. False si una compra se ha confirmado o registrado (ese caso lo maneja 'confirma_compra'). Es independiente de 'fin_de_conversacion'.\"\n    },\n  \"cambio_en_intencion\": {      \"type\": \"boolean\",\n      \"description\": \"True si se detecta en el mensaje actual, que hay un cambio tangible en la intención de comrpa del cliente con respecto a los últimos mensajes previos en el historial de la conversación, ya sea que este aumente o disminuya por igual. false si la intención de compra es esencialmente igual que en los últimos mensajes del historial. También true si el cliente envía su dirección de envío, ciudad o estado, y si confirma el registro de su pre-orden de compra, ya que esto representaría un cambio de intención de compra, por ejemplo, de alta, a completa\"\n  },\n  \"intencion_de_compra\": {\n    \"type\": \"int\",\n    \"description\": \"Califica la intención de compra del cliente o su interés en los productos o servicios ofrecidos por la marca, o dicho de otra forma, su probabilidad de compra, en una escala del 1 al 3 donde 1 es una intención o probabilidad de compra baja, 2 es una intención de compra media o moderada, y 3 es una, alta o muy alta intención o probabilidad de compra. 1 Si el cliente solo saluda o escribe cualquier mensaje sin preguntas en el mensaje actual. 2 Si el cliente hace preguntas vagas sobre el producto o expresa directa o implícitamente una urgencia baja o nula por comprar. 3 Si el cliente muestra un claro y gran interés en sus productos o expresa directa o implícitamente urgencia por adquirir un producto o ya ha hecho muchas preguntas, más de alrededor de 7, o ha enviado muchos mensajes, más de alrededor de 15. Si el cliente confirma que desea registrar su pre-orden de compra, su intención de compra es 4, que representa 'completa', o dicho de otra forma, ha completado su compra.Este campo no puede ir vacío ni ser null bajo ningún motivo, debe ser un número entero del 1 al 4 según corresponda\"\n  } \n  },\n  \"required\": [\n  \"requiere_respuesta\",\n  \"tiene_preguntas\",\n  \"pausa_conversacion\",\n  \"confirma_compra\",\n  \"fin_de_conversacion\",\n  \"requiere_soporte\",\n  \"cambio_en_intencion\",\n  \"intencion_de_compra\"\n  ]\n}",
         "options": {}
       },
       "type": "@n8n/n8n-nodes-langchain.informationExtractor",
       "typeVersion": 1.2,
       "position": [
-        1472,
+        1488,
         384
       ],
-      "id": "2eb2c9ef-f21f-4b5b-8185-25af40420db1",
+      "id": "260e2286-e5b3-432c-bd01-c4c077a34767",
       "name": "Identificar Acciones",
       "retryOnFail": true,
       "executeOnce": false
@@ -186,16 +166,16 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={\n  \"metadata_chat\": {\n    \"chat_id\": {{ $('Obtener chat').item.json.id ? $('Obtener chat').item.json.id : $('Crear chat').item.json.id }},\n    \"lead_id\": {{ $('Obtener chat').item.json.lead_id ? $('Obtener chat').item.json.lead_id : ($('Obtener Lead').item.json[0] ? $('Obtener Lead').item.json[0].id : $('Crear lead').item.json.id) }},\n    \"intencion_de_compra\": {{ $('Identificar Acciones').item.json.output.intencion_de_compra }},\n    \"chat_status\": {{ $('Obtener chat').item.json.status ? JSON.stringify($('Obtener chat').item.json.status) : JSON.stringify(\"activo\") }}\n  },\n  \"acciones_requeridas\": {\n    \"requiere_respuesta\": {{ $('Identificar Acciones').item.json.output.requiere_respuesta }},\n    \"tiene_preguntas\": {{ $('Identificar Acciones').item.json.output.tiene_preguntas }},\n    \"pausa_conversacion\": {{ $('Identificar Acciones').item.json.output.pausa_conversacion }},\n    \"confirma_compra\": {{ $('Identificar Acciones').item.json.output.confirma_compra }},\n    \"fin_de_conversacion\": {{ $('Identificar Acciones').item.json.output.fin_de_conversacion }},\n    \"requiere_soporte\": {{ $('Identificar Acciones').item.json.output.requiere_soporte }},\n    \"cambio_en_intencion\": {{ $('Identificar Acciones').item.json.output.cambio_en_intencion }}\n  },\n  \"contenido_chat\": {\n    \"mensaje\": {{ JSON.stringify($('Start').item.json.message_text) }},\n    \"contexto_previo\": {{ $('Obtener Historial de Chat').item.json.messagesCount > 0 ? JSON.stringify($('Obtener Historial de Chat').item.json.messages.map(m => `${m.role}: ${m.content}`).join('\\n')) : JSON.stringify(\"No hay mensajes previos, el mensaje recibido es el primero\") }}\n  }\n}",
+        "jsonOutput": "={\n  \"metadata_chat\": {\n    \"chat_id\": {{ $('Obtener Chat').item.json.id ? $('Obtener Chat').item.json.id : $('Crear chat').item.json.id }},\n    \"lead_id\": {{ $('Obtener Chat').item.json.lead_id ? $('Obtener Chat').item.json.lead_id : ($('Obtener Lead').item.json[0] ? $('Obtener Lead').item.json[0].id : $('Crear lead').item.json.id) }},\n    \"intencion_de_compra\": {{ $('Identificar Acciones').item.json.output.intencion_de_compra }},\n    \"chat_status\": {{ $('Obtener Chat').item.json.status ? JSON.stringify($('Obtener Chat').item.json.status) : JSON.stringify(\"activo\") }}\n  },\n  \"acciones_requeridas\": {\n    \"requiere_respuesta\": {{ $('Identificar Acciones').item.json.output.requiere_respuesta }},\n    \"tiene_preguntas\": {{ $('Identificar Acciones').item.json.output.tiene_preguntas }},\n    \"pausa_conversacion\": {{ $('Identificar Acciones').item.json.output.pausa_conversacion }},\n    \"confirma_compra\": {{ $('Identificar Acciones').item.json.output.confirma_compra }},\n    \"fin_de_conversacion\": {{ $('Identificar Acciones').item.json.output.fin_de_conversacion }},\n    \"requiere_soporte\": {{ $('Identificar Acciones').item.json.output.requiere_soporte }},\n    \"cambio_en_intencion\": {{ $('Identificar Acciones').item.json.output.cambio_en_intencion }}\n  },\n  \"contenido_chat\": {\n    \"mensaje\": {{ JSON.stringify($('Start').item.json.message_text) }},\n    \"contexto_previo\": {{ { \"historial\": $('Obtener Historial de Chat').item.json.messagesCount ? $('Obtener Historial de Chat').item.json.messages.map(m => `${Object.keys(m)[0]}: ${Object.values(m)[0]}`).join('\\n') : \"No hay mensajes previos, el mensaje recibido es el primero\" } }}\n  }\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1824,
+        1840,
         384
       ],
-      "id": "0a48cb5b-ede1-4058-860f-461b1912aa60",
+      "id": "b6597e27-46f6-4425-98a8-809507d51f5c",
       "name": "Definir informacion necesaria"
     },
     {
@@ -205,25 +185,11 @@
       "type": "@n8n/n8n-nodes-langchain.memoryManager",
       "typeVersion": 1.1,
       "position": [
-        1120,
+        1136,
         384
       ],
-      "id": "8e60d4ca-4a9c-4600-920d-f9e7dd810ff1",
+      "id": "84c49e89-a03d-4057-9212-8b3de89f02b4",
       "name": "Obtener Historial de Chat"
-    },
-    {
-      "parameters": {
-        "sessionIdType": "customKey",
-        "sessionKey": "={{ $('Obtener chat').item.json.id ? $('Obtener chat').item.json.id : $('Crear chat').item.json.id }}"
-      },
-      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
-      "typeVersion": 1.4,
-      "position": [
-        1120,
-        592
-      ],
-      "id": "9a24afc7-b428-43c4-b876-1ba0d10ead67",
-      "name": "Simple Memory"
     },
     {
       "parameters": {
@@ -314,59 +280,107 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        2032,
+        2064,
         384
       ],
-      "id": "bc6589ce-18e8-49f4-8d9a-6ac58205b815",
+      "id": "77410819-79f5-4368-9245-411132341aca",
       "name": "Return"
     },
     {
       "parameters": {
-        "workflowInputs": {
-          "values": [
-            {
-              "name": "message_chat_id",
-              "type": "any"
-            },
-            {
-              "name": "message_from_first_name",
-              "type": "any"
-            },
-            {
-              "name": "message_text",
-              "type": "any"
-            }
-          ]
-        }
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Obtener Chat').item.json.id ? $('Obtener Chat').item.json.id : $('Crear chat').item.json.id }}"
       },
-      "id": "886577de-6232-46ef-9bb2-d042de840fb1",
-      "typeVersion": 1.1,
-      "name": "Start",
-      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.4,
       "position": [
-        -432,
+        1216,
+        608
+      ],
+      "id": "4d4715e4-cad8-41e7-8e63-f35264fa3d14",
+      "name": "Postgres Chat Memory",
+      "credentials": {
+        "postgres": {
+          "id": "t5k2QRkhodQmtVLZ",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-pro-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        1488,
+        624
+      ],
+      "id": "6d65e1cb-4915-4e9d-8970-c925b8e167eb",
+      "name": "Crear Chat",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "oXElMeDdDQ7uWmaK",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api-test-motomex.paosofiam.com/chats?chat_whatsapp_id={{ $('Start').item.json.message_chat_id }}",
+        "options": {}
+      },
+      "id": "04445178-d4d4-472d-b115-7f41897b048a",
+      "name": "Obtener Chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -208,
         384
-      ]
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-test-motomex.paosofiam.com/chats",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"lead_id\": {{ $('Obtener Lead').item.json[0] ? $('Obtener Lead').item.json[0].id : $json.id }}, \"chat_whatsapp_id\": \"{{ $('Start').item.json.message_chat_id }}\", \"chat_status_id\": 1, \"resumen\": \"Conversacion iniciada desde Telegram\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        912,
+        464
+      ],
+      "id": "dbe622a3-9312-47bd-89aa-6d46b71904e9",
+      "name": "Crear chat",
+      "executeOnce": true
     }
   ],
   "pinData": {},
   "connections": {
-    "Obtener Lead": {
+    "Start": {
       "main": [
         [
           {
-            "node": "Si el lead existe",
+            "node": "Obtener Chat",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Obtener chat": {
+    "Obtener Lead": {
       "main": [
         [
           {
-            "node": "Si el chat existe",
+            "node": "Si el lead existe",
             "type": "main",
             "index": 0
           }
@@ -409,34 +423,12 @@
         ]
       ]
     },
-    "Crear chat": {
-      "main": [
-        [
-          {
-            "node": "Obtener Historial de Chat",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Crear lead": {
       "main": [
         [
           {
             "node": "Crear chat",
             "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Modelo de lenguaje": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "Identificar Acciones",
-            "type": "ai_languageModel",
             "index": 0
           }
         ]
@@ -464,7 +456,18 @@
         ]
       ]
     },
-    "Simple Memory": {
+    "Definir informacion necesaria": {
+      "main": [
+        [
+          {
+            "node": "Return",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
       "ai_memory": [
         [
           {
@@ -475,22 +478,33 @@
         ]
       ]
     },
-    "Start": {
+    "Crear Chat": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Identificar Acciones",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Chat": {
       "main": [
         [
           {
-            "node": "Obtener chat",
+            "node": "Si el chat existe",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Definir informacion necesaria": {
+    "Crear chat": {
       "main": [
         [
           {
-            "node": "Return",
+            "node": "Obtener Historial de Chat",
             "type": "main",
             "index": 0
           }
@@ -504,8 +518,9 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "481dfdb9-ee18-4023-ae8f-638371b2f447",
+  "versionId": "ddcc188f-536d-4abd-81c8-7014cadb30eb",
   "meta": {
+    "templateCredsSetupCompleted": true,
     "instanceId": "58b2e22eda324b1eaa9c8f8d7e8f4202f314c7175e1322e379fc803adb96312e"
   },
   "id": "hW7JG8ge4CbSHwjg",

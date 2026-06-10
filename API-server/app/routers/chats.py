@@ -21,13 +21,20 @@ router = APIRouter(prefix="/chats", tags=["chats"])
     "",
     response_model=ChatResponse,
     status_code=status.HTTP_201_CREATED,
-    responses={404: {"model": ProblemDetail}, 422: {"model": ProblemDetail}},
+    responses={
+        200: {"model": ChatResponse},
+        404: {"model": ProblemDetail},
+        422: {"model": ProblemDetail},
+    },
 )
 def create_chat(
     payload: ChatCreate, response: Response, db: Session = Depends(get_db)
 ) -> Any:
-    """Crea un chat. Soft-delete del chat activo previo obligatorio. Devuelve 201 + Location."""
-    chat = chat_service.create(db, payload)
+    """Crea un chat de forma idempotente. Si ya hay un chat activo con el mismo `lead_id` o
+    `chat_whatsapp_id`, no crea ni borra: devuelve el existente con `200 OK`. Si no, crea uno y
+    devuelve `201 Created`. En ambos casos incluye el header `Location`."""
+    chat, creado = chat_service.create(db, payload)
+    response.status_code = status.HTTP_201_CREATED if creado else status.HTTP_200_OK
     response.headers["Location"] = f"/chats/{chat.id}"
     return chat
 

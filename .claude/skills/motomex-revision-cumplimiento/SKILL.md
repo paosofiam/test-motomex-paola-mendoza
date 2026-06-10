@@ -26,26 +26,27 @@ Auditoría sistemática del código de `API-server/` contra `specs/` (`contracts
 - [ ] Seeders exactos: `monedas`(1 MXN 100 / 2 USD 1700 / 3 EUR 2300), `intenciones`(baja/media/alta/completa), `chat_statuses`(activo/en revisión/en espera/con cliente/cerrado).
 - [ ] No existen columnas `leads.estado`, `leads.estado_id`, `leads.chat_id` (son derivados).
 
-## Checklist — capa de API (controladores/routers/schemas)
+## Checklist — capa de API (routers/schemas)
 - [ ] Respuestas sin wrapper; arrays planos; status de la tabla de `endpoints.md`.
-- [ ] POST ⇒ `201` + `Location`; PATCH ⇒ `200` + recurso completo; DELETE ⇒ `204` sin body.
+- [ ] POST ⇒ `201` + `Location` (o **`200`** + `Location` si es idempotente y el recurso ya existía: `/leads`, `/chats`); PATCH ⇒ `200` + recurso completo; DELETE ⇒ `204` sin body.
 - [ ] Errores `4xx`/`5xx` en `application/problem+json` con `type/title/status/detail/instance` (+ `field`/`value_received` en validación).
 - [ ] Precios en respuestas convertidos a MXN (`round(precio*tipo_de_cambio/100)`), `int` centavos.
 - [ ] Tier respetado: Tier 1 id→string; Tier 2 string↔string con normalización (lowercase/trim/unidecode) idéntica en find y create; Tier 3 por id + campos legibles; `productos_interes` como `[string]`.
 - [ ] find-or-create solo en: `POST /productos` (marca, vehiculos, categorias, ciudades) y `vehiculo` de `/leads` (cascada marca). Todo lo demás find-or-fail ⇒ `422` con `value_received`.
-- [ ] `leads.productos_interes[]` find-or-fail por modelo, multi-match persiste todas las relaciones.
+- [ ] `leads.productos_interes[]` **find-or-skip aditivo** por modelo (modelo inexistente se omite con `Warning`, **no** `422`; el lead se crea/edita igual); multi-match persiste todas las relaciones; en `PATCH` aditivo.
 - [ ] `pre_ordenes.productos[].producto_id` exige id exacto (sin resolución por string).
 - [ ] Vehículos siempre `{modelo, marca, anio}` en request y response.
-- [ ] `GET /chats*` devuelve un solo chat (más reciente); `POST /chats` soft-deletea el chat activo previo.
+- [ ] `GET /chats*` y `GET /leads*` devuelven **un solo** objeto (más reciente, `404` si no hay).
+- [ ] `POST /chats` y `POST /leads` son **idempotentes**: si ya existe uno activo → `200` + el existente, **sin crear ni borrar** (chats por `lead_id` **o** `chat_whatsapp_id`; leads por `chat_whatsapp_id`). `create` **nunca** soft-deletea el previo. `leads` **sin** `DELETE`; reemplazar un chat exige `DELETE /chats/{id}`.
 - [ ] `PATCH /chats/{id}` solo `chat_status_id`/`resumen`; `lead_id`/`chat_whatsapp_id` inmutables.
-- [ ] `/leads` response incluye `chat_id` y `estado` derivados; body **no** acepta `estado`.
+- [ ] `/leads` response incluye `lead_id` (alias de id), `chat_id`, `status` y `estado` derivados; `/chats` response incluye `chat_id` (alias de id), `lead_id`, `status`. El body **no** acepta `estado`.
 - [ ] `telefono` valida E.164 (≤15 chars, prefijo `+`).
 - [ ] **Toda** query filtra `deleted_at IS NULL`.
 
 ## Checklist — convenciones y estructura
-- [ ] Archivos/clases: `*_model.py`→`*Model`, `*_controller.py`→`*Controller`, `*_router`; dominio en español.
+- [ ] Archivos/clases: `*_model.py`→`*Model`; routers plural por recurso (`productos.py`, `leads.py`) con instancia `router = APIRouter(...)` (**no** `*_controller.py` ni clases `*Controller`); services `*_service.py` con funciones de módulo; dominio en español.
 - [ ] Reusa `Base`/`SessionLocal`/`get_db` de `app/database.py`; settings de `app/config.py`.
 - [ ] No se tocó `.env` (solo `.env.example`). Sin secretos hardcodeados.
 
 ## Señales de alarma (rechazo inmediato)
-- `float`/`Numeric` para dinero · `session.delete(...)` (hard delete) · wrapper `{"data":...}` · método fuera de la matriz · `HTTPException` crudo sin problem+json · query sin filtro `deleted_at IS NULL` · `estado`/`chat_id` como columna de `leads`.
+- `float`/`Numeric` para dinero · `session.delete(...)` (hard delete) · wrapper `{"data":...}` · método fuera de la matriz · `HTTPException` crudo sin problem+json · query sin filtro `deleted_at IS NULL` · `estado`/`chat_id`/`status` como columna de `leads` · `POST /chats` o `POST /leads` que cree un duplicado o borre el activo previo (deben ser idempotentes) · existencia de `DELETE /leads` · archivos/clases `*_controller.py`/`*Controller`.

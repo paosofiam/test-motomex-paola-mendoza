@@ -16,8 +16,10 @@ sin ciudad y el aviso va en el header `Warning`). En la respuesta, `estado` se s
 relaciones `productos_interes` y `vehiculo` se vinculan de forma aditiva (combinan con lo existente,
 nunca reemplazan ni borran; lista vacía u omitida = sin cambios, no hay remoción vía API).
 
-`LeadResponse` incluye los campos derivados `chat_id` (chat activo, None si aún no tiene) y
-`estado` (None si `ciudad` es None), además de `intencion_de_compra` ya resuelto a string.
+`LeadResponse` incluye los campos derivados `chat_id` y `status` (del chat activo, None si aún no
+tiene) y `estado` (None si `ciudad` es None), además de `intencion_de_compra` ya resuelto a string.
+Devuelve también un alias `lead_id` (= `id`): identificador cruzado informativo, simétrico con
+`ChatResponse`, para que el consumidor LLM tenga lead/chat ids consulte el recurso que consulte.
 """
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -52,7 +54,9 @@ class LeadResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    lead_id: int
     chat_id: int | None = None
+    status: str | None = None
     chat_whatsapp_id: str
     nombre_whatsapp: str
     telefono: str

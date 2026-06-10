@@ -161,10 +161,12 @@ pytest -v                     # con output detallado
 ### Leads
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
-| `GET` | `/leads` | Lista leads. Query params: `chat_whatsapp_id`, `intencion_de_compra` |
-| `POST` | `/leads` | Crea lead |
+| `GET` | `/leads` | Obtiene el lead activo. Query param: `chat_whatsapp_id` (un solo objeto; `404` si no hay) |
+| `POST` | `/leads` | Crea lead. **Idempotente**: si ya existe uno activo con ese `chat_whatsapp_id`, devuelve el existente (`200`) sin crear |
 | `GET` | `/leads/{id}` | Obtiene lead por id |
 | `PATCH` | `/leads/{id}` | Actualiza lead (retorna recurso completo) |
+
+> No hay `DELETE /leads`: los leads no se borran vía API. Solo puede haber **un lead activo por `chat_whatsapp_id`**.
 
 **Body `POST /leads`:**
 ```json
@@ -188,13 +190,13 @@ pytest -v                     # con output detallado
 ### Chats
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
-| `GET` | `/chats` | Obtiene chat activo. Query param: `chat_whatsapp_id` |
-| `POST` | `/chats` | Crea chat (soft-delete del previo del mismo lead) |
+| `GET` | `/chats` | Obtiene chat activo. Query param: `chat_whatsapp_id` (un solo objeto; `404` si no hay) |
+| `POST` | `/chats` | Crea chat. **Idempotente**: si ya existe uno activo con el mismo `lead_id` o `chat_whatsapp_id`, devuelve el existente (`200`) sin crear ni borrar |
 | `GET` | `/chats/{id}` | Obtiene chat por id |
 | `PATCH` | `/chats/{id}` | Actualiza `chat_status_id` y/o `resumen` |
 | `DELETE` | `/chats/{id}` | Soft-delete de chat |
 
-> Solo puede haber **un chat activo por lead**. Crear un nuevo chat soft-elimina el anterior automáticamente.
+> Solo puede haber **un chat activo por `chat_whatsapp_id`**. `POST /chats` es idempotente (no crea duplicados ni borra el anterior); para **reemplazar** un chat hay que hacer `DELETE /chats/{id}` y luego `POST`.
 
 ---
 

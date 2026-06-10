@@ -8,7 +8,9 @@ tras crear — no aparecen en `ChatUpdate` (CLAUDE.md invariante). `chat_status_
 campos enviados de no enviados.
 
 `ChatResponse` devuelve `status` ya resuelto a string (Tier 1: derivado del join con
-`chat_statuses`).
+`chat_statuses`) y, además del `id`, un alias `chat_id` (= `id`): identificador cruzado informativo,
+simétrico con `LeadResponse`, para que el consumidor LLM tenga lead/chat ids consulte el recurso que
+consulte.
 """
 
 from pydantic import BaseModel, ConfigDict
@@ -30,6 +32,7 @@ class ChatResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    chat_id: int
     lead_id: int
     chat_whatsapp_id: str
     status: str

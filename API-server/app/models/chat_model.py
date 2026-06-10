@@ -1,13 +1,14 @@
 """Entidad Tier 3: chats — TABLA ORM.
 
 Definición de tabla pura: columnas + relationship `chat_status` + `get_by_id`. La query del chat
-activo más reciente (`ORDER BY created_at DESC LIMIT 1`), la creación (con soft-delete del chat
-previo del mismo lead), el update y el delete viven en `chat_service.py`; el modelo no filtra ni
-orquesta.
+activo más reciente (`ORDER BY created_at DESC LIMIT 1`), la creación idempotente, el update y el
+delete viven en `chat_service.py`; el modelo no filtra ni orquesta.
 
 Notas de contrato (resueltas en la capa service):
 - `lead_id` y `chat_whatsapp_id` son inmutables tras crear (no se aceptan en update).
-- Solo un chat activo por lead a la vez: al crear se soft-deletea el chat activo previo del lead.
+- Solo un chat activo por `chat_whatsapp_id` a la vez: `create` es idempotente (si ya hay un chat
+  activo con el mismo `lead_id` o `chat_whatsapp_id`, devuelve el existente sin crear ni borrar).
+  Reemplazar un chat exige `delete` previo; `create` nunca elimina el anterior.
 - `update` solo toca `chat_status_id` y `resumen`. `delete` es soft delete; deja intactas las filas
   relacionadas.
 """
