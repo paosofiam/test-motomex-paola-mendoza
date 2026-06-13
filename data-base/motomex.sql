@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1:3306
--- Tiempo de generación: 10-06-2026 a las 22:12:07
+-- Tiempo de generación: 13-06-2026 a las 03:51:05
 -- Versión del servidor: 11.8.6-MariaDB-log
 -- Versión de PHP: 7.2.34
 
@@ -98,10 +98,15 @@ CREATE TABLE `chats` (
 --
 
 INSERT INTO `chats` (`id`, `created_at`, `updated_at`, `deleted_at`, `lead_id`, `chat_whatsapp_id`, `chat_status_id`, `resumen`) VALUES
-(1, '2026-06-10 20:27:08', '2026-06-10 20:37:36', '2026-06-10 20:38:50', 1, '6771465876', 1, 'Canalizado a revisión humana'),
-(2, '2026-06-10 20:40:02', '2026-06-10 20:48:13', '2026-06-10 20:54:13', 1, '6771465876', 5, 'Venta cerrada. compra confirmada'),
-(3, '2026-06-10 20:45:45', '2026-06-10 20:48:07', '2026-06-10 20:53:25', 2, '716082462', 1, 'Conversación retomada'),
-(4, '2026-06-10 21:00:16', '2026-06-10 21:00:16', NULL, 1, '6771465876', 1, 'Conversacion iniciada desde Telegram');
+(1, '2026-06-12 22:58:18', '2026-06-12 22:58:18', '2026-06-12 23:00:26', 1, '6771465876', 1, 'Conversacion iniciada desde Telegram'),
+(2, '2026-06-12 23:03:20', '2026-06-12 23:11:37', '2026-06-12 23:21:15', 1, '6771465876', 1, 'Conversación retomada'),
+(3, '2026-06-12 23:08:11', '2026-06-12 23:24:27', '2026-06-12 23:26:22', 2, '716082462', 5, 'Venta cerrada. compra confirmada'),
+(4, '2026-06-12 23:21:29', '2026-06-12 23:55:32', '2026-06-13 00:19:39', 1, '6771465876', 5, 'Venta cerrada. compra confirmada'),
+(5, '2026-06-12 23:27:24', '2026-06-12 23:27:24', NULL, 2, '716082462', 1, 'Conversacion iniciada desde Telegram'),
+(6, '2026-06-13 00:21:17', '2026-06-13 00:41:22', '2026-06-12 18:49:41', 1, '6771465876', 5, 'Venta cerrada. compra confirmada'),
+(7, '2026-06-13 00:50:21', '2026-06-13 00:55:46', '2026-06-13 00:55:47', 1, '6771465876', 5, 'Venta cerrada. compra confirmada'),
+(8, '2026-06-13 01:07:43', '2026-06-13 01:18:16', '2026-06-13 01:20:17', 3, '6771465876', 5, 'Venta cerrada. compra confirmada'),
+(9, '2026-06-13 03:31:11', '2026-06-13 03:44:01', NULL, 3, '6771465876', 2, 'Venta cerrada. compra confirmada');
 
 -- --------------------------------------------------------
 
@@ -153,7 +158,9 @@ INSERT INTO `ciudades` (`id`, `created_at`, `updated_at`, `deleted_at`, `ciudad`
 (3, '2026-06-08 18:07:24', '2026-06-08 18:07:24', NULL, 'leon', 12),
 (4, '2026-06-08 18:07:25', '2026-06-08 18:07:25', NULL, 'ciudad de mexico', 7),
 (5, '2026-06-08 19:27:09', '2026-06-08 19:27:09', NULL, 'puebla', 21),
-(6, '2026-06-08 19:27:22', '2026-06-08 19:27:22', NULL, 'queretaro', 22);
+(6, '2026-06-08 19:27:22', '2026-06-08 19:27:22', NULL, 'queretaro', 22),
+(7, '2026-06-12 23:24:18', '2026-06-12 23:24:18', NULL, 'san nicolas de los garza', 19),
+(8, '2026-06-13 03:43:54', '2026-06-13 03:43:54', NULL, 'tlalnepantla', 7);
 
 -- --------------------------------------------------------
 
@@ -257,8 +264,9 @@ CREATE TABLE `leads` (
 --
 
 INSERT INTO `leads` (`id`, `created_at`, `updated_at`, `deleted_at`, `chat_whatsapp_id`, `nombre_whatsapp`, `telefono`, `nombre`, `ciudad_id`, `direccion_envio`, `intencion_de_compra_id`) VALUES
-(1, '2026-06-10 20:27:07', '2026-06-10 21:07:48', NULL, '6771465876', 'Paola Sofía', '+520000000000', NULL, NULL, NULL, 2),
-(2, '2026-06-10 20:45:44', '2026-06-10 20:51:35', NULL, '716082462', 'Andree', '+520000000000', NULL, NULL, NULL, 4);
+(1, '2026-06-12 22:58:17', '2026-06-13 00:55:40', NULL, '6778465875', ' ', '+520000000000', 'Paola Sofía Mendoza', 5, 'calle Roma #400 Col Fomerrey, CP 55511', 4),
+(2, '2026-06-12 23:08:11', '2026-06-12 23:27:52', NULL, '716082462', ' ', '+520000000000', 'Andree Malerva', 7, 'Av. Diego Díaz 400, colonia pedregal Santo Domingo', 3),
+(3, '2026-06-13 01:07:42', '2026-06-13 03:43:54', NULL, '6771465876', ' ', '+520000000000', 'Paola Sofía Mendoza', 8, 'calle xicotencatl #8625, Colonia Cuahutemoc, CP 15159', 4);
 
 -- --------------------------------------------------------
 
@@ -370,6 +378,14 @@ CREATE TABLE `pre_ordenes` (
   `total` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Volcado de datos para la tabla `pre_ordenes`
+--
+
+INSERT INTO `pre_ordenes` (`id`, `created_at`, `updated_at`, `deleted_at`, `lead_id`, `total`) VALUES
+(1, '2026-06-13 01:18:16', '2026-06-13 01:18:16', NULL, 3, 1),
+(2, '2026-06-13 03:44:00', '2026-06-13 03:44:00', NULL, 3, 1);
+
 -- --------------------------------------------------------
 
 --
@@ -385,6 +401,14 @@ CREATE TABLE `pre_ordenes_productos` (
   `producto_id` int(11) NOT NULL,
   `cantidad` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Volcado de datos para la tabla `pre_ordenes_productos`
+--
+
+INSERT INTO `pre_ordenes_productos` (`id`, `created_at`, `updated_at`, `deleted_at`, `pre_orden_id`, `producto_id`, `cantidad`) VALUES
+(1, '2026-06-13 01:18:16', '2026-06-13 01:18:16', NULL, 1, 53, 3),
+(2, '2026-06-13 03:44:00', '2026-06-13 03:44:00', NULL, 2, 52, 10);
 
 -- --------------------------------------------------------
 
@@ -821,7 +845,7 @@ ALTER TABLE `categorias`
 -- AUTO_INCREMENT de la tabla `chats`
 --
 ALTER TABLE `chats`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT de la tabla `chat_statuses`
@@ -833,7 +857,7 @@ ALTER TABLE `chat_statuses`
 -- AUTO_INCREMENT de la tabla `ciudades`
 --
 ALTER TABLE `ciudades`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT de la tabla `estados`
@@ -851,7 +875,7 @@ ALTER TABLE `intenciones_de_compra_de_leads`
 -- AUTO_INCREMENT de la tabla `leads`
 --
 ALTER TABLE `leads`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT de la tabla `leads_productos`
@@ -881,13 +905,13 @@ ALTER TABLE `monedas`
 -- AUTO_INCREMENT de la tabla `pre_ordenes`
 --
 ALTER TABLE `pre_ordenes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT de la tabla `pre_ordenes_productos`
 --
 ALTER TABLE `pre_ordenes_productos`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT de la tabla `productos`
