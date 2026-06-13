@@ -10,12 +10,13 @@
               "type": "any"
             },
             {
-              "name": "message_from_first_name",
-              "type": "any"
+              "name": "message_from_first_name"
             },
             {
-              "name": "message_text",
-              "type": "any"
+              "name": "message_text"
+            },
+            {
+              "name": "message_from_last_name"
             }
           ]
         }
@@ -107,7 +108,7 @@
         "url": "https://api-test-motomex.paosofiam.com/leads",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={ \"chat_whatsapp_id\": \"{{ $('Start').item.json.message_chat_id }}\", \"nombre_whatsapp\": \"{{ $('Start').item.json.message_from_first_name }}\", \"telefono\": \"+520000000000\", \"intencion_de_compra_id\": 1, \"nombre\": null, \"ciudad\": null, \"productos_interes\": [], \"vehiculo\": [], \"direccion_envio\": null }",
+        "jsonBody": "={ \"chat_whatsapp_id\": \"{{ $('Start').item.json.message_chat_id }}\", \"nombre_whatsapp\": \"{{ $('Start').item.json.first_name }} {{ $('Start').item.json.last_name }}\", \"telefono\": \"+520000000000\", \"intencion_de_compra_id\": 1, \"nombre\": null, \"ciudad\": null, \"productos_interes\": [], \"vehiculo\": [], \"direccion_envio\": null }",
         "options": {}
       },
       "id": "42bea151-11bd-47e0-ba89-9e47859565a4",
@@ -125,7 +126,7 @@
       "parameters": {
         "text": "=Historial de la conversación:\n{{ $json.contexto_previo }}\n\nMensaje actual del usuario:\n{{ $('Start').item.json.message_text }}",
         "schemaType": "manual",
-        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"requiere_respuesta\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si el mensaje actual es legible, una oración coherente o más, y puede obtenerse información de este como preguntas, afirmaciones, saludos y/o despedidas, etc. False si el mensaje es una muletilla o un mensaje ilegible del estilo 'mmm', '...', 'asdf', '#_', etc. Todo mensaje coherente requiere respuesta, así sea para aclarar a qué se refería el usuario con ese mensaje\"\n    },\n  \"tiene_preguntas\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si el mensaje actual contiene una pregunta directa o implícita sobre productos, precios, marcas, envíos o cualquier otro tema relacionado con la venta de refacciones y autopartes.\"\n    },\n  \"pausa_conversacion\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si: (a) el usuario pide explícitamente pausar o esperar (p. ej. 'dame 5 minutos', 'ahora vuelvo', 'voy y vuelvo'), AUNQUE el mensaje sea legible; o (b) el mensaje es una muletilla o ilegible como 'mmm', '...', 'asdf'. False en cualquier otro caso: cuando es un mensaje normal que debe responderse (saludo, pregunta o afirmación) y no es ni una pausa explícita ni una muletilla. Nota: un mensaje legible que pide pausa SÍ es true (no lo trates como false por ser legible).\"\n    },\n  \"confirma_compra\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si según el historial de la conversación, en el último mensae previo, se le había solicitado confirmar el registro de su orden de compra, y se le había informado el precio final e items de su orden, y el usuario confirmó o afirmó en el mensaje actual.\"\n    },\n  \"fin_de_conversacion\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si el usuario utiliza palabras de despedida explícitas al final o en cualquier parte del mensaje actual, se implica que es el último mensaje de la conversación o el usuario trata de escribir alguna clase de comando de terminal para finalizar la conversación o algo por el estilo. También true si ya se confirmó y registró orden de compra y no hay más acciones pendientes por realizar o revisar según el historial de la conversación.\"\n    },\n  \"requiere_soporte\": {\n      \"type\": \"boolean\",\n      \"description\": \"True el usuario solicita explícitamente en el mensaje actual hablar con un humano, asesor o ejecutivo, o hay un problema técnico o error del sistema que impide responder al usuario. False si una compra se ha confirmado o registrado (ese caso lo maneja 'confirma_compra'). Es independiente de 'fin_de_conversacion'.\"\n    },\n  \"cambio_en_intencion\": {      \"type\": \"boolean\",\n      \"description\": \"True si se detecta en el mensaje actual, que hay un cambio tangible en la intención de comrpa del cliente con respecto a los últimos mensajes previos en el historial de la conversación, ya sea que este aumente o disminuya por igual. false si la intención de compra es esencialmente igual que en los últimos mensajes del historial. También true si el cliente envía su dirección de envío, ciudad o estado, y si confirma el registro de su pre-orden de compra, ya que esto representaría un cambio de intención de compra, por ejemplo, de alta, a completa\"\n  },\n  \"intencion_de_compra\": {\n    \"type\": \"int\",\n    \"description\": \"Califica la intención de compra del cliente o su interés en los productos o servicios ofrecidos por la marca, o dicho de otra forma, su probabilidad de compra, en una escala del 1 al 3 donde 1 es una intención o probabilidad de compra baja, 2 es una intención de compra media o moderada, y 3 es una, alta o muy alta intención o probabilidad de compra. 1 Si el cliente solo saluda o escribe cualquier mensaje sin preguntas en el mensaje actual. 2 Si el cliente hace preguntas vagas sobre el producto o expresa directa o implícitamente una urgencia baja o nula por comprar. 3 Si el cliente muestra un claro y gran interés en sus productos o expresa directa o implícitamente urgencia por adquirir un producto o ya ha hecho muchas preguntas, más de alrededor de 7, o ha enviado muchos mensajes, más de alrededor de 15. Si el cliente confirma que desea registrar su pre-orden de compra, su intención de compra es 4, que representa 'completa', o dicho de otra forma, ha completado su compra.Este campo no puede ir vacío ni ser null bajo ningún motivo, debe ser un número entero del 1 al 4 según corresponda\"\n  },\n    \"ciudad\": {\n      \"type\": \"string\",\n    \"description\": \"Ciudad de residencia expresada por el usuario como parte de su dirección de domicilio de residencia. Ejemplos de Ciudades: Guadalajara, Monterrey, Saltillo, Linares, Tepetzintla, etc.\"\n    },\n    \"estado\": {\n      \"type\": \"string\",\n    \"description\": \"Ciudad de residencia expresada por el usuario como parte de su dirección de domicilio de residencia. Ejemplos de Estados: Jalisco, Nuevo León, Coahuila, Nuevo León, Veracruz, etc.\"\n    },\n    \"dirección\": {\n      \"type\": \"string\",\n    \"description\": \"dirección de domicilio (Address Line 1) de residencia declarada por el usuario. Ejemplo de dirección: Calle 'nombreDeCalle' #123, Colonia 'nombreDeColonia'.\"\n    },\n    \"nombre_de_usuario\" : {\n      \"type\": \"string\",\n    \"description\": \"Nombre propio declarado por el usuario como nombre a cuál dirigirse durante el chat, o al cual registrar su pre-orden de compra. Ejemplos de nombres: Juan, María Laura, Fernando González, Mario Abel Esquivel Juárez, etc.\"\n    }\n  },\n  \"required\": [\n  \"requiere_respuesta\",\n  \"tiene_preguntas\",\n  \"pausa_conversacion\",\n  \"confirma_compra\",\n  \"fin_de_conversacion\",\n  \"requiere_soporte\",\n  \"cambio_en_intencion\",\n  \"intencion_de_compra\", \"ciudad\", \"estado\", \"dirección\", \"nombre_de_usuario\"\n  ]\n}",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"requiere_respuesta\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si el mensaje actual es legible, una oración coherente o más, y puede obtenerse información de este como preguntas, afirmaciones, saludos y/o despedidas, etc. False si el mensaje es una muletilla o un mensaje ilegible del estilo 'mmm', '...', 'asdf', '#_', etc. Todo mensaje coherente requiere respuesta, así sea para aclarar a qué se refería el usuario con ese mensaje\"\n    },\n  \"tiene_preguntas\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si el mensaje actual contiene una pregunta directa o implícita sobre productos, precios, marcas, envíos o cualquier otro tema relacionado con la venta de refacciones y autopartes.\"\n    },\n  \"pausa_conversacion\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si: (a) el usuario pide explícitamente pausar o esperar (p. ej. 'dame 5 minutos', 'ahora vuelvo', 'voy y vuelvo'), AUNQUE el mensaje sea legible; o (b) el mensaje es una muletilla o ilegible como 'mmm', '...', 'asdf'. False en cualquier otro caso: cuando es un mensaje normal que debe responderse (saludo, pregunta o afirmación) y no es ni una pausa explícita ni una muletilla. Nota: un mensaje legible que pide pausa SÍ es true (no lo trates como false por ser legible).\"\n    },\n  \"confirma_compra\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si según el historial de la conversación, en el último mensae previo, se le había solicitado confirmar el registro de su orden de compra, y se le había informado el precio final e items de su orden, y el usuario confirmó o afirmó en el mensaje actual. True SOLO si además el usuario ha proporcionado su dirección de domicilio completa con ciudad y estado, si no se cumple este requisito, false.\"\n    },\n  \"fin_de_conversacion\": {\n      \"type\": \"boolean\",\n      \"description\": \"True si el usuario utiliza palabras de despedida explícitas al final o en cualquier parte del mensaje actual, se implica que es el último mensaje de la conversación o el usuario trata de escribir alguna clase de comando de terminal para finalizar la conversación o algo por el estilo. También true si ya se confirmó y registró orden de compra y no hay más acciones pendientes por realizar o revisar según el historial de la conversación.\"\n    },\n  \"requiere_soporte\": {\n      \"type\": \"boolean\",\n      \"description\": \"True el usuario solicita explícitamente en el mensaje actual hablar con un humano, asesor o ejecutivo, o hay un problema técnico o error del sistema que impide responder al usuario. False si una compra se ha confirmado o registrado (ese caso lo maneja 'confirma_compra'). Es independiente de 'fin_de_conversacion'.\"\n    },\n  \"cambio_en_intencion\": {      \"type\": \"boolean\",\n      \"description\": \"True si se detecta en el mensaje actual, que hay un cambio tangible en la intención de comrpa del cliente con respecto a los últimos mensajes previos en el historial de la conversación, ya sea que este aumente o disminuya por igual. false si la intención de compra es esencialmente igual que en los últimos mensajes del historial. También true si el cliente envía su dirección de envío, ciudad o estado, y si confirma el registro de su pre-orden de compra, ya que esto representaría un cambio de intención de compra, por ejemplo, de alta, a completa\"\n  },\n  \"intencion_de_compra\": {\n    \"type\": \"int\",\n    \"description\": \"Califica la intención de compra del cliente o su interés en los productos o servicios ofrecidos por la marca, o dicho de otra forma, su probabilidad de compra, en una escala del 1 al 3 donde 1 es una intención o probabilidad de compra baja, 2 es una intención de compra media o moderada, y 3 es una, alta o muy alta intención o probabilidad de compra. 1 Si el cliente solo saluda o escribe cualquier mensaje sin preguntas en el mensaje actual. 2 Si el cliente hace preguntas vagas sobre el producto o expresa directa o implícitamente una urgencia baja o nula por comprar. 3 Si el cliente muestra un claro y gran interés en sus productos o expresa directa o implícitamente urgencia por adquirir un producto o ya ha hecho muchas preguntas, más de alrededor de 7, o ha enviado muchos mensajes, más de alrededor de 15. Si el cliente confirma que desea registrar su pre-orden de compra, su intención de compra es 4, que representa 'completa', o dicho de otra forma, ha completado su compra.Este campo no puede ir vacío ni ser null bajo ningún motivo, debe ser un número entero del 1 al 4 según corresponda\"\n  },\n    \"ciudad\": {\n      \"type\": \"string\",\n    \"description\": \"Ciudad de residencia expresada por el usuario como parte de su dirección de domicilio de residencia. Ejemplos de Ciudades: Guadalajara, Monterrey, Saltillo, Linares, Tepetzintla, etc.\"\n    },\n    \"estado\": {\n      \"type\": \"string\",\n    \"description\": \"Ciudad de residencia expresada por el usuario como parte de su dirección de domicilio de residencia. Ejemplos de Estados: Jalisco, Nuevo León, Coahuila, Nuevo León, Veracruz, etc.\"\n    },\n    \"dirección\": {\n      \"type\": \"string\",\n    \"description\": \"dirección de domicilio (Address Line 1) de residencia declarada por el usuario. Ejemplo de dirección: Calle 'nombreDeCalle' #123, Colonia 'nombreDeColonia'.\"\n    },\n    \"nombre_de_usuario\" : {\n      \"type\": \"string | null\",\n    \"description\": \"Nombre propio declarado por el usuario como nombre a cuál dirigirse durante el chat, o al cual registrar su pre-orden de compra. Ejemplos de nombres: Juan, María Laura, Fernando González, Mario Abel Esquivel Juárez, etc. Null si el usuario no ha manifestado su nombre a lo alrgo de la conversación\"\n    }\n  },\n  \"required\": [\n  \"requiere_respuesta\",\n  \"tiene_preguntas\",\n  \"pausa_conversacion\",\n  \"confirma_compra\",\n  \"fin_de_conversacion\",\n  \"requiere_soporte\",\n  \"cambio_en_intencion\",\n  \"intencion_de_compra\", \"ciudad\", \"estado\", \"dirección\", \"nombre_de_usuario\"\n  ]\n}",
         "options": {}
       },
       "type": "@n8n/n8n-nodes-langchain.informationExtractor",
@@ -160,12 +161,6 @@
               "id": "8b41115b-e4b7-4c80-a5c5-c15c6b99bb9e",
               "name": "contenido_chat_contexto_previo",
               "value": "={{ $('Formatear historial de chat').item.json.contexto_previo }}",
-              "type": "string"
-            },
-            {
-              "id": "c42c9e87-9d7d-483c-8680-35fdc5b7915a",
-              "name": "contenido_chat_mensaje",
-              "value": "={{ $('Start').item.json.message_text }}",
               "type": "string"
             },
             {
@@ -255,7 +250,13 @@
             {
               "id": "0d0ac92f-1f20-46f2-a733-0d77502ad5e5",
               "name": "lead_info_nombre",
-              "value": "={{ $json.output.nombre_de_usuario }}",
+              "value": "={{ $json.output.nombre_de_usuario ? $json.output.nombre_de_usuario : \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "47ec27de-95f1-40af-8deb-e93bde371ea5",
+              "name": "contenido_chat_info_sistema",
+              "value": "={{ $('Formatear historial de chat').item.json.info_sistema }}",
               "type": "string"
             }
           ]
@@ -274,7 +275,7 @@
     {
       "parameters": {
         "sessionIdType": "customKey",
-        "sessionKey": "={{ $json.chat_id }}"
+        "sessionKey": "={{ $json.lead_id }}{{ $json.chat_id }}"
       },
       "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
       "typeVersion": 1.4,
@@ -382,7 +383,7 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={\n  \"contexto_previo\": {{ $('Obtener Historial de Chat').item.json.messagesCount ? JSON.stringify($('Obtener Historial de Chat').item.json.messages.map(m =>\n  `${Object.keys(m)[0]}: ${Object.values(m)[0]}\\n${Object.keys(m)[1]}: ${Object.values(m)[1]}`).join('\\n')) : JSON.stringify(\"No hay mensajes previos, el mensaje recibido es el primero\") }}\n}\n",
+        "jsonOutput": "={\n  \"contexto_previo\": {{ $('Obtener Historial de Chat').item.json.messagesCount ? JSON.stringify($('Obtener Historial de Chat').item.json.messages.map(m =>\n  `${Object.keys(m)[0]}: ${Object.values(m)[0]}\\n${Object.keys(m)[1]}: ${Object.values(m)[1]}`).join('\\n')) : JSON.stringify(\"No hay mensajes previos, el mensaje recibido es el primero\") }}, \"info_sistema\": {{ $('Obtener Historial de Chat').item.json.messagesCount ? JSON.stringify($('Obtener Historial de Chat').item.json.messages.filter(m => Object.keys(m).length > 2).map(m => `${Object.keys(m)[2]}: ${Object.values(m)[2]}`).join('\\n')) : JSON.stringify(\"No hay registros previos en el sistema\") }}\n}\n",
         "options": {}
       },
       "type": "n8n-nodes-base.set",
@@ -561,7 +562,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "4b2b7858-7784-4b08-9df5-7e76a87e3a89",
+  "versionId": "ff5261da-772f-44bc-9fb2-b02330048109",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "58b2e22eda324b1eaa9c8f8d7e8f4202f314c7175e1322e379fc803adb96312e"
